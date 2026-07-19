@@ -1,9 +1,0 @@
-{"level":"info","message":"API server started on port 4000","timestamp":"2026-07-01 09:08:42"}
-{"level":"info","message":"API server started on port 4000","timestamp":"2026-07-01 09:09:34"}
-{"level":"info","message":"API server started on port 4000","timestamp":"2026-07-01 09:14:45"}
-{"level":"info","message":"Registering user","timestamp":"2026-07-01 09:15:08"}
-{"level":"info","message":{"method":"POST","responseTimeMs":5.05,"status":200,"url":"/register","userAgent":"curl/8.12.1"},"timestamp":"2026-07-01 09:15:08"}
-{"level":"info","message":"Registering user","timestamp":"2026-07-01 09:15:51"}
-{"level":"info","message":{"method":"POST","responseTimeMs":2.06,"status":200,"url":"/register","userAgent":"curl/8.12.1"},"timestamp":"2026-07-01 09:15:52"}
-{"level":"info","message":"API server started on port 4000","timestamp":"2026-07-01 09:19:03"}
-{"level":"info","message":"API server started on port 4000","timestamp":"2026-07-01 11:27:10"}
