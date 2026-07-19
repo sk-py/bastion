@@ -4,7 +4,7 @@ const emailSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .email("Invalid email address");
+  .pipe(z.email());
 
 const passwordSchema = z
   .string()
