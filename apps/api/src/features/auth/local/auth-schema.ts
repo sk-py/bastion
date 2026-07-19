@@ -1,47 +1,47 @@
 import * as z from "zod";
 
+const emailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email("Invalid email address");
+
+const passwordSchema = z
+  .string()
+  .min(6, "Password must be at least 6 characters long")
+  .max(100, "Password must be less than 100 characters")
+  .regex(
+    /^(?=.*[A-Za-z])(?=.*\d).{6,}$/,
+    "Password must contain at least one letter and one number",
+  );
+
+const nameSchema = z
+  .string()
+  .trim()
+  .min(2, "Name must be at least 2 characters")
+  .max(100, "Name is too long");
+
 export const registerSchema = z.object({
-  name: z.string(),
-  email: z.email(),
-  password: z
-    .string("Password is required")
-    .min(6, "Password must be atleast 6 characters long")
-    .max(100, "Password must be less than hundred characters")
-    .regex(
-      /^(?=.*[A-Za-z])(?=.*\d).{6,}$/,
-      "Password must contain at least one letter and one number",
-    ),
+  name: nameSchema,
+  email: emailSchema,
+  password: passwordSchema,
 });
 
 export const loginSchema = z.object({
-  email: z.email(),
-  password: z
-    .string()
-    .min(6, "Password must be at least 6 characters long")
-    .max(100, "Password must be less than 100 characters")
-    .regex(
-      /^(?=.*[A-Za-z])(?=.*\d).{6,}$/,
-      "Password must contain at least one letter and one number",
-    ),
+  email: emailSchema,
+  password: passwordSchema,
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.email(),
+  email: emailSchema,
 });
 
 export const resendVerificationSchema = z.object({
-  email: z.email(),
+  email: emailSchema,
 });
 
 export const resetPasswordSchema = z.object({
-  password: z
-    .string("Password is required")
-    .min(6, "Password must be atleast 6 characters long")
-    .max(100, "Password must be less than hundred characters")
-    .regex(
-      /^(?=.*[A-Za-z])(?=.*\d).{6,}$/,
-      "Password must contain at least one letter and one number",
-    ),
+  password: passwordSchema,
   token: z.string(),
 });
 
