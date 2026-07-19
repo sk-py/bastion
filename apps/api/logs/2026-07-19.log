@@ -1,4 +1,0 @@
-{"level":"info","message":"API server started on port 4000","timestamp":"2026-07-19 13:24:25"}
-{"level":"info","message":{"method":"GET","responseTimeMs":18.58,"status":404,"url":"/","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"},"timestamp":"2026-07-19 13:24:35"}
-{"level":"info","message":{"method":"GET","responseTimeMs":2.39,"status":200,"url":"/health","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"},"timestamp":"2026-07-19 13:24:51"}
-{"level":"info","message":{"method":"GET","responseTimeMs":1.2,"status":404,"url":"/favicon.ico","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"},"timestamp":"2026-07-19 13:24:52"}
