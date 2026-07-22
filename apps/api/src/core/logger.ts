@@ -1,10 +1,10 @@
 import { createLogger, transports, format } from "winston";
-import { environment, logDirectory } from "../config.js";
+import { env } from "../config.js";
 import path from "path";
 import fs from "fs";
 import DailyRotateFile from "winston-daily-rotate-file";
 
-let dir = logDirectory ?? "logs";
+let dir = env.LOG_DIR ?? "logs";
 
 if (!dir) dir = path.resolve("logs");
 
@@ -12,7 +12,7 @@ if (!fs.existsSync(dir)) {
   fs.mkdirSync(dir);
 }
 
-const logLevel = environment === "development" ? "debug" : "warn";
+const logLevel = env.NODE_ENV === "development" ? "debug" : "warn";
 
 const dailyRotateFile = new DailyRotateFile({
   level: logLevel,
@@ -34,8 +34,8 @@ export default createLogger({
     new transports.Console({
       level: logLevel,
       format: format.combine(
-        format.colorize({ all: true }),
         format.prettyPrint(),
+        format.colorize({ all: true }),
         format.errors({ stack: true }),
       ),
     }),

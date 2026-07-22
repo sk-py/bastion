@@ -1,17 +1,17 @@
 import dotenv from "dotenv";
+import { z } from "zod";
 
 dotenv.config()
 
-export const environment = process.env.NODE_ENV || "production";
-export const port = process.env.PORT || 3001;
+const envSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]),
+  PORT: z.coerce.number().default(4000),
 
-export const logDirectory = process.env.LOG_DIR;
+  DATABASE_URL: z.url(),
 
-export const db = {
-    name : process.env.DB_NAME || "",
-    user : process.env.DB_USER || "",
-    password : process.env.DB_PASSWORD || "",
-    host : process.env.DB_HOST || "",
-    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
-    url : process.env.DATABASE_URL || "",
-}
+  JWT_SECRET: z.string().min(1),
+
+  LOG_DIR: z.string().default("logs"),
+});
+
+export const env = envSchema.parse(process.env);

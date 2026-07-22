@@ -20,6 +20,7 @@ export const accessLogMiddleware = (
       status: res.statusCode,
       responseTimeMs: Number(responseTimeMs.toFixed(2)),
       userAgent: req.headers["user-agent"] || "",
+      ip: req.headers["x-forwarded-for"] ?? req.ip,
     });
   });
 
