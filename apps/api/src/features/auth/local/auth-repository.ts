@@ -1,5 +1,10 @@
 import pool from "../../../db/pool.js";
-import type { User, CreateUserInput } from "./auth-types.js";
+import type {
+  User,
+  CreateUserInput,
+  CreateSessionInput,
+  Session,
+} from "./auth-types.js";
 
 export const findUserByEmail = async (email: string): Promise<User | null> => {
   const { rows } = await pool.query<User>(
@@ -27,4 +32,30 @@ export const createUser = async ({
     [name, email, passwordHash],
   );
   return rows[0];
+};
+
+export const createSession = async ({
+  expiresAt,
+  ipAddress,
+  lastUsedAt,
+  sessionTokenHash,
+  userAgent,
+  userId,
+}: CreateSessionInput): Promise<Session> => {
+  const { rows } = await pool.query<Session>(
+    `
+      INSERT INTO auth_sessions (
+      user_id,
+      session_token_hash,
+      expires_at,
+      last_used_at,
+      ip_address,
+      user_agent )
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `,
+    [userId, sessionTokenHash, expiresAt, lastUsedAt, ipAddress, userAgent],
+  );
+
+  return rows[0]!;
 };
