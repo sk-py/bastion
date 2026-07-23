@@ -59,3 +59,31 @@ export const createSession = async ({
 
   return rows[0]!;
 };
+
+export const findSessionByTokenHash = async (
+  sessionTokenHash: string,
+): Promise<Session | null> => {
+  const { rows } = await pool.query<Session>(
+    "SELECT * FROM auth_sessions WHERE session_token_hash = $1 LIMIT 1",
+    [sessionTokenHash],
+  );
+  return rows[0] ?? null;
+};
+
+export const deleteSessionByTokenHash = async (
+  sessionTokenHash: string,
+): Promise<void> => {
+  await pool.query(
+    "DELETE FROM auth_sessions WHERE session_token_hash = $1",
+    [sessionTokenHash],
+  );
+};
+
+export const deleteSessionsByUserId = async (
+  userId: string,
+): Promise<void> => {
+  await pool.query(
+    "DELETE FROM auth_sessions WHERE user_id = $1",
+    [userId],
+  );
+};

@@ -1,11 +1,18 @@
 import argon2 from "argon2";
 import BadRequestError from "../../../core/errors/bad-request.js";
-import { createSession, createUser, findUserByEmail } from "./auth-repository.js";
+import {
+  createSession,
+  createUser,
+  deleteSessionByTokenHash,
+  deleteSessionsByUserId,
+  findSessionByTokenHash,
+  findUserByEmail,
+  findUserById,
+} from "./auth-repository.js";
 import type { LoginUserInput, User } from "./auth-types.js";
-import type { LoginSchema } from "./auth-schema.js";
-import UnauthorizedError from "../../../core/errors/unauthorized.js";
-import crypto from 'crypto'
+import crypto from "crypto";
 import { env } from "../../../config.js";
+import UnAuthenticatedError from "../../../core/errors/unauthenticated.js";
 interface RegisterUserInput {
   name: string;
   email: string;
@@ -41,7 +48,6 @@ export const registerUser = async ({
   return toPublicUser(createdUser);
 };
 
-
 export const loginUser = async ({
   email,
   password,
@@ -51,16 +57,13 @@ export const loginUser = async ({
   const user = await findUserByEmail(email);
 
   if (!user) {
-    throw new UnauthorizedError("Invalid credentials");
+    throw new UnAuthenticatedError("Invalid credentials");
   }
 
-  const valid = await argon2.verify(
-    user.password_hash,
-    password,
-  );
+  const valid = await argon2.verify(user.password_hash, password);
 
   if (!valid) {
-    throw new UnauthorizedError("Invalid credentials");
+    throw new UnAuthenticatedError("Invalid credentials");
   }
 
   const sessionToken = crypto.randomBytes(32).toString("base64url");
@@ -70,9 +73,7 @@ export const loginUser = async ({
     .update(sessionToken)
     .digest("hex");
 
-  const expiresAt = new Date(
-    Date.now() + env.AUTH_SESSION_TTL_MS,
-  );
+  const expiresAt = new Date(Date.now() + env.AUTH_SESSION_TTL_MS);
 
   await createSession({
     userId: user.id,
@@ -89,4 +90,48 @@ export const loginUser = async ({
     user: publicUser,
     sessionToken,
   };
+};
+
+export const authenticateUser = async (sessionToken: string) => {
+  const sessionTokenHash = crypto
+    .createHash("sha256")
+    .update(sessionToken)
+    .digest("hex");
+
+  const session = await findSessionByTokenHash(sessionTokenHash);
+
+  if (!session) {
+    throw new UnAuthenticatedError("Unauthorized");
+  }
+
+  if (session.expires_at < new Date()) {
+    throw new UnAuthenticatedError("Session expired");
+  }
+
+  const user = await findUserById(session.user_id);
+
+  if (!user) {
+    throw new UnAuthenticatedError("Unauthorized");
+  }
+
+  if (!user.is_active) {
+    throw new UnAuthenticatedError("Acocunt is disabled");
+  }
+
+  const { password_hash, ...publicUser } = user;
+
+  return { user: publicUser, session };
+};
+
+export const logoutUser = async (sessionToken: string): Promise<void> => {
+  const sessionTokenHash = crypto
+    .createHash("sha256")
+    .update(sessionToken)
+    .digest("hex");
+
+  await deleteSessionByTokenHash(sessionTokenHash);
+};
+
+export const logoutAllDevices = async (userId: string): Promise<void> => {
+  await deleteSessionsByUserId(userId);
 };

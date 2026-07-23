@@ -8,13 +8,14 @@ import errorHandlerMiddleware from "./middleware/error-handler.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import cors from "cors";
 import { connectToDatabase } from "./db/index.js";
-
+import cookieParser from "cookie-parser";
 dotenv.config();
 
 const PORT = process.env.PORT || 3002;
 const app: Express = express();
 
 app.use(cors());
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -31,7 +32,7 @@ app.use(errorHandlerMiddleware);
 
 const bootstrap = async () => {
   await connectToDatabase();
-  
+
   app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
     Logger.info(`API server started on port ${PORT}`);
