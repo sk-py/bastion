@@ -3,33 +3,49 @@ import type { ColumnDefinitions, MigrationBuilder } from "node-pg-migrate";
 export const shorthands: ColumnDefinitions | undefined = undefined;
 
 export async function up(pgm: MigrationBuilder): Promise<void> {
-  pgm.createExtension("pgcrypto", {
-    ifNotExists: true,
-  });
-
-  pgm.createTable("users", {
+  pgm.createType("auth_method", ["password", "private_key"]);
+  pgm.createTable("servers", {
     id: {
       type: "uuid",
       primaryKey: true,
       default: pgm.func("gen_random_uuid()"),
     },
+    user_id: {
+      type: "uuid",
+      notNull: true,
+      references: "users(id)",
+      onDelete: "CASCADE",
+    },
     name: {
-      type: "varchar(100)",
-      notNull: true,
-    },
-    email: {
-      type: "varchar(255)",
-      notNull: true,
-      unique: true,
-    },
-    password_hash: {
       type: "text",
       notNull: true,
     },
-    is_active: {
-      type: "boolean",
+    host: {
+      type: "text",
       notNull: true,
-      default: true,
+    },
+    port: {
+      type: "integer",
+      notNull: true,
+      default: 22,
+      check: "port BETWEEN 1 AND 65535",
+    },
+    username: {
+      type: "text",
+      notNull: true,
+    },
+    auth_method: {
+      type: "auth_method",
+      notNull: true,
+    },
+    encrypted_password: {
+      type: "text",
+    },
+    encrypted_private_key: {
+      type: "text",
+    },
+    encrypted_passphrase: {
+      type: "text",
     },
     created_at: {
       type: "timestamptz",
@@ -42,8 +58,11 @@ export async function up(pgm: MigrationBuilder): Promise<void> {
       default: pgm.func("NOW()"),
     },
   });
+
+  pgm.createIndex("servers", "user_id");
 }
 
 export async function down(pgm: MigrationBuilder): Promise<void> {
-  pgm.dropTable("users");
+  pgm.dropTable("servers");
+  pgm.dropType("auth_method");
 }

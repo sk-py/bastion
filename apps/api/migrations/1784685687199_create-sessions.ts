@@ -27,7 +27,7 @@ export async function up(pgm: MigrationBuilder): Promise<void> {
     last_used_at: {
       type: "timestamptz",
       notNull: true,
-      default: pgm.func("CURRENT_TIMESTAMP"),
+      default: pgm.func("NOW()"),
     },
     ip_address: {
       type: "text",
@@ -38,7 +38,7 @@ export async function up(pgm: MigrationBuilder): Promise<void> {
     createdAt: {
       type: "timestamptz",
       notNull: true,
-      default: pgm.func("CURRENT_TIMESTAMP"),
+      default: pgm.func("NOW()"),
     },
   });
 
