@@ -3,6 +3,7 @@ import type { Express } from "express";
 import dotenv from "dotenv";
 import Logger from "./core/logger.js";
 import authRoutes from "./features/auth/local/auth-routes.js";
+import serverRoutes from "./features/servers/server-routes.js";
 import { accessLogMiddleware } from "./middleware/access-log.js";
 import errorHandlerMiddleware from "./middleware/error-handler.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
@@ -23,6 +24,7 @@ app.use(requestIdMiddleware);
 app.use(accessLogMiddleware);
 
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/server", serverRoutes);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
