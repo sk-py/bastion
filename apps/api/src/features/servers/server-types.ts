@@ -1,13 +1,45 @@
+import type z from "zod";
+import type { updateServerSchema } from "./server-schema.js";
+
 export interface Server {
   id: string;
-  user_id: string;
+  userId: string;
+  name: string;
   host: string;
   port: number;
   username: string;
-  auth_method: ["password", "private_key"];
-  password?: string;
-  private_key?: string;
-  passphrase?: string;
-  created_at: Date;
-  updated_at: Date;
+  authMethod: "password" | "private_key";
+  encryptedPassword?: string | null;
+  encryptedPrivateKey?: string | null;
+  encryptedPassphrase?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
+
+export interface CreateServerData {
+  name: string;
+  host: string;
+  port: number;
+  username: string;
+  authMethod: "password" | "private_key";
+  encryptedPassword: string | null;
+  encryptedPrivateKey: string | null;
+  encryptedPassphrase: string | null;
+}
+
+
+export interface UpdateServerData {
+  id: string;
+  userId: string;
+  name: string;
+  host: string;
+  port: number;
+  username: string;
+  authMethod: "password" | "private_key";
+  encryptedPassword: string | null;
+  encryptedPrivateKey: string | null;
+  encryptedPassphrase: string | null;
+}
+
+
+export type UpdateServerInput = z.infer<typeof updateServerSchema>;

@@ -27,6 +27,7 @@
     "http-status-codes": "^2.3.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.22.0",
+    "ssh2": "^1.17.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
     "zod": "^4.4.3"
@@ -39,6 +40,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.1",
     "@types/pg": "^8.20.0",
+    "@types/ssh2": "^1.15.5",
     "node-pg-migrate": "^9.0.0",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
