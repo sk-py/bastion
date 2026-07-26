@@ -10,12 +10,14 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import cors from "cors";
 import { connectToDatabase } from "./db/index.js";
 import cookieParser from "cookie-parser";
+import { env } from "./config.js";
 dotenv.config();
 
-const PORT = process.env.PORT || 3002;
+const PORT = env.PORT || 3002;
 const app: Express = express();
 
 app.use(cors());
+app.set("trust proxy", env.TRUST_PROXY);
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

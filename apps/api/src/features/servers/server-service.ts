@@ -1,5 +1,7 @@
 import NotFoundError from "../../core/errors/not-found.js";
-import { encrypt } from "../../core/utils/encryption.js";
+import { testConnection } from "../../core/ssh/ssh-service.js";
+import type { SSHConfig } from "../../core/ssh/ssh-types.js";
+import { decrypt, encrypt } from "../../core/utils/encryption.js";
 import {
   createNewServer,
   deleteServer,
@@ -93,4 +95,44 @@ export const deleteServerById = async ({
   userId,
 }: DeleteServerSchema) => {
   await deleteServer({ serverId, userId });
+};
+
+export const testServerConnection = async (
+  serverId: string,
+  userId: string,
+) => {
+  const server = await fetchServerById(serverId, userId);
+
+  interface DecryptedData {
+    decryptedPassword?: string;
+    decryptedPrivateKey?: string;
+    decryptedPassphrase?: string;
+  }
+
+  let decryptedData: DecryptedData = {};
+
+  if (!server) {
+    throw new NotFoundError("Server not found for this specific id");
+  }
+
+  if (server.authMethod === "password") {
+    decryptedData.decryptedPassword = decrypt(server.encryptedPassword!);
+  } else {
+    decryptedData.decryptedPrivateKey = decrypt(server.encryptedPrivateKey!);
+    decryptedData.decryptedPassphrase = server.encryptedPassphrase
+      ? decrypt(server.encryptedPassphrase)
+      : "";
+  }
+
+  const sshConfig: SSHConfig = {
+    authMethod: server.authMethod,
+    host: server.host,
+    port: server.port,
+    username: server.username,
+    password: decryptedData.decryptedPassword!,
+    privateKey: decryptedData.decryptedPrivateKey!,
+    passphrase: decryptedData.decryptedPassphrase!,
+  };
+
+  await testConnection(sshConfig);
 };

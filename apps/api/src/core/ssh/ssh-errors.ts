@@ -1,20 +1,20 @@
-export class SSHAuthenticationError extends Error {
+import { StatusCodes } from "http-status-codes";
+import APIError from "../errors/api-error.js";
+
+export class SSHAuthenticationError extends APIError {
   constructor(message = "Authentication failed.") {
-    super(message);
-    this.name = "SSHAuthenticationError";
+    super(message, StatusCodes.UNPROCESSABLE_ENTITY);
   }
 }
 
-export class SSHConnectionError extends Error {
+export class SSHConnectionError extends APIError {
   constructor(message: string) {
-    super(message);
-    this.name = "SSHConnectionError";
+    super(message, StatusCodes.BAD_GATEWAY);
   }
 }
 
-export class SSHTimeoutError extends Error {
+export class SSHTimeoutError extends APIError {
   constructor(message = "Connection timed out.") {
-    super(message);
-    this.name = "SSHTimeoutError";
+    super(message, StatusCodes.GATEWAY_TIMEOUT);
   }
 }

@@ -4,6 +4,7 @@ import {
   addNewServer,
   getAllServers,
   removeServerById,
+  testServerConnection,
   updateServer,
 } from "./server-controller.js";
 import { validate } from "../../middleware/validator.js";
@@ -38,5 +39,7 @@ router.patch(
   validate(updateServerSchema, "body"),
   updateServer,
 );
+
+router.post("/:id/test",requireAuth, validate(serverIdSchema,"params"), testServerConnection)
 
 export default router;

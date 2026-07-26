@@ -4,6 +4,7 @@ import {
   deleteServerById,
   getAllServers as getAllServerService,
   updateServerService,
+  testServerConnection as testServerConnectionService,
 } from "./server-service.js";
 import type { ServerIdSchema } from "./server-schema.js";
 
@@ -47,5 +48,17 @@ export const removeServerById = async (req: Request, res: Response) => {
   res.status(200).json({
     status: "success",
     message: "Server deleted successfully",
+  });
+};
+
+export const testServerConnection = async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const { id } = req.params as ServerIdSchema;
+
+  await testServerConnectionService(id, userId);
+
+  res.status(200).json({
+    status: "success",
+    message: "Connection is valid!",
   });
 };

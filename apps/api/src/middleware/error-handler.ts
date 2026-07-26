@@ -1,10 +1,10 @@
-import type { NextFunction, Request, Response } from 'express';
-import { StatusCodes } from 'http-status-codes';
-import APIError from '../core/errors/api-error.js';
-import type { ApiErrorResponse } from '../types/api.js';
-import { env } from '../config.js';
-import InternalServerError from '../core/errors/internal-server.js';
-import logger from '../core/logger.js';
+import type { NextFunction, Request, Response } from "express";
+import { StatusCodes } from "http-status-codes";
+import APIError from "../core/errors/api-error.js";
+import type { ApiErrorResponse } from "../types/api.js";
+import { env } from "../config.js";
+import InternalServerError from "../core/errors/internal-server.js";
+import logger from "../core/logger.js";
 
 const errorHandlerMiddleware = (
   err: Error | APIError,
@@ -18,6 +18,16 @@ const errorHandlerMiddleware = (
 
   // Handle custom API errors
   if (err instanceof APIError) {
+    const log = req.log ?? logger;
+    log.warn(err.message, {
+      requestId: req.id,
+      userId: req.user?.id,
+      method: req.method,
+      path: req.originalUrl,
+      params: req.params,
+      name: err.name,
+      statusCode: err.statusCode,
+    });
     const apiError: ApiErrorResponse = {
       success: false,
       status: err.statusCode,
@@ -28,70 +38,32 @@ const errorHandlerMiddleware = (
   }
 
   // Handle validation errors (from express-validator or similar)
-  if (err.name === 'ValidationError') {
+  if (err.name === "ValidationError") {
     const apiError: ApiErrorResponse = {
       success: false,
       status: StatusCodes.BAD_REQUEST,
-      message: err.message || 'Validation error',
+      message: err.message || "Validation error",
     };
 
     return res.status(StatusCodes.BAD_REQUEST).json(apiError);
   }
 
-  // Handle JWT errors
-  if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-    const apiError: ApiErrorResponse = {
-      success: false,
-      status: StatusCodes.UNAUTHORIZED,
-      message: 'Invalid or expired token',
-    };
-
-    return res.status(StatusCodes.UNAUTHORIZED).json(apiError);
-  }
-
-  // Handle Prisma errors
-//   if (err.name === 'PrismaClientKnownRequestError') {
-//     const prismaError = err as PrismaError;
-
-//     // Unique constraint violation
-//     if (prismaError.code === 'P2002') {
-//       const apiError: ApiErrorResponse = {
-//         success: false,
-//         status: StatusCodes.CONFLICT,
-//         message: 'Resource already exists',
-//       };
-
-//       return res.status(StatusCodes.CONFLICT).json(apiError);
-//     }
-
-//     // Record not found
-//     if (prismaError.code === 'P2025') {
-//       const apiError: ApiErrorResponse = {
-//         success: false,
-//         status: StatusCodes.NOT_FOUND,
-//         message: 'Resource not found',
-//       };
-
-//       return res.status(StatusCodes.NOT_FOUND).json(apiError);
-//     }
-//   }
-
-  if (env.NODE_ENV === 'development') {
-    console.error('Error:', {
-      name: err.name,
-      message: err.message,
-      stack: err.stack,
-    });
-  } else {
-    console.error('Error:', {
-      name: err.name,
-    });
-  }
+  // if (env.NODE_ENV === "development") {
+  //   console.error("Error:", {
+  //     name: err.name,
+  //     message: err.message,
+  //     stack: err.stack,
+  //   });
+  // } else {
+  //   console.error("Error:", {
+  //     name: err.name,
+  //   });
+  // }
 
   const internalError = new InternalServerError(
-    env.NODE_ENV === 'production'
-      ? 'Something went wrong'
-      : err.message || 'Internal server error',
+    env.NODE_ENV === "production"
+      ? "Something went wrong"
+      : err.message || "Internal server error",
   );
 
   const apiError: ApiErrorResponse = {
@@ -101,15 +73,12 @@ const errorHandlerMiddleware = (
   };
 
   const log = req.log ?? logger;
-  log.error("",
-    {
-      requestId: req.id,
-      name: err.name,
-      message: err.message,
-      stack: env.NODE_ENV === 'development' ? err.stack : undefined,
-    },
-    'Request failed',
-  );
+  log.error("Request failed", {
+    requestId: req.id,
+    name: err.name,
+    message: err.message,
+    stack: env.NODE_ENV === "development" ? err.stack : undefined,
+  });
 
   res.status(internalError.statusCode).json(apiError);
 };
