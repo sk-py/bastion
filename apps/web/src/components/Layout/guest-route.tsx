@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from "react-router";
-import BastionLoader from "./BastionLoader";
+import BastionLoader from "./bastion-loader";
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
 
 export function GuestRoute() {

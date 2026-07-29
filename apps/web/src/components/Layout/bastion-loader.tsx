@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 
 const DEFAULT_PHRASES = [
+  'Authenticating session…',
   'Resolving host…',
   'Verifying host key…',
   'Opening secure tunnel…',
-  'Authenticating session…',
 ];
 
 interface loaderProps {

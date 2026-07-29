@@ -1,8 +1,9 @@
 import { createBrowserRouter, RouterProvider } from "react-router"
-import Protected from "./components/Layout/ProtectedRoute"
+import Protected from "./components/Layout/protected-route"
 import Dashboard from "./features/dashboard/dashboard"
 import LoginPage from "./features/auth/login"
-import { GuestRoute } from "./components/Layout/GuestRoute"
+import { GuestRoute } from "./components/Layout/guest-route"
+import Layout from "./components/Layout/app-layout"
 
 function App() {
 
@@ -11,8 +12,13 @@ function App() {
       element: <Protected />,
       children: [
         {
-          path: "/",
-          element: <Dashboard />
+          element: <Layout />,
+          children: [
+            {
+              path: "/",
+              element: <Dashboard />
+            }
+          ]
         }
       ]
     },

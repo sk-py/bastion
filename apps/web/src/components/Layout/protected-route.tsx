@@ -1,6 +1,6 @@
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user"
 import { Navigate, Outlet } from "react-router"
-import BastionLoader from "./BastionLoader"
+import BastionLoader from "./bastion-loader"
 
 const Protected = () => {
     const { data: user, isPending } = useCurrentUser()
