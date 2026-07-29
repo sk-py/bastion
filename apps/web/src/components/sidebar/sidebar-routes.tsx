@@ -18,9 +18,9 @@ export type Route = {
 export const appRoutes: Route[] = [
   {
     id: "dashboard",
-    title: "Dashboard",
+    title: "Home",
     icon: <Home className="size-4" />,
-    link: "/dashboard",
+    link: "/",
   },
   {
     id: "infrastructure",

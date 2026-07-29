@@ -44,7 +44,7 @@ export default function DashboardNavigation({ routes }: { routes: Route[] }) {
         const hasSubRoutes = !!route.subs?.length;
 
         return (
-          <SidebarMenuItem key={route.id}>
+          <SidebarMenuItem onClick={(e) => e.stopPropagation()} key={route.id}>
             {hasSubRoutes ? (
               <Collapsible
                 className="w-full"

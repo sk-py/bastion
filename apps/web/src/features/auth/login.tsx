@@ -43,9 +43,9 @@ export default function LoginPage() {
       <div className="mb-10 flex flex-col items-center gap-3 text-center">
         <img src="/bastion-logo-cropped.png" className="size-16 object-contain" />
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          {/* <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Bastion
-          </h1>
+          </h1> */}
           <p className="mt-1 text-sm text-foreground-muted">
             Log in to Bastion
           </p>
@@ -53,7 +53,7 @@ export default function LoginPage() {
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface-elevated p-8">
+      <div className="w-full max-w-sm rounded-lg p-8">
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
           {/* Email */}
           <div className="space-y-2">
@@ -123,7 +123,7 @@ export default function LoginPage() {
             disabled={isSubmitting}
             className={cn(
               "flex w-full items-center justify-center gap-2 rounded-md py-2.5",
-              "bg-foreground text-sm font-medium text-white transition-opacity",
+              "bg-foreground text-sm text-white dark:text-black font-mediumtransition-opacity",
               "hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer",
             )}
           >

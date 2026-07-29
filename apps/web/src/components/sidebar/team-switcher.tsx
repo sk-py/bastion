@@ -5,6 +5,7 @@ import * as React from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -30,8 +31,8 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
 
   if (!activeTeam) return null;
 
-    const Logo = "./android-chrome-512x512.png"
-    
+  const Logo = "./android-chrome-512x512.png"
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -56,32 +57,35 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
           <DropdownMenuContent
             align="start"
             className="mb-4 w-(--anchor-width) min-w-56 rounded-lg"
-            side={isMobile ? 'bottom' : 'right'}
+            side={isMobile ? 'bottom' : 'top'}
             sideOffset={4}
           >
-            <DropdownMenuLabel className="text-muted-foreground text-xs">
-              Teams
-            </DropdownMenuLabel>
-            {teams.map((team, index) => (
-              <DropdownMenuItem
-                className="gap-2 p-2"
-                key={team.name}
-                onClick={() => setActiveTeam(team)}
-              >
-                <div className="flex size-6 items-center justify-center rounded-sm border">
-                  <img src={team.logo} className="size-4 shrink-0" />
+            <DropdownMenuGroup>
+
+              <DropdownMenuLabel className="text-muted-foreground text-xs">
+                Teams
+              </DropdownMenuLabel>
+              {teams.map((team, index) => (
+                <DropdownMenuItem
+                  className="gap-2 p-2"
+                  key={team.name}
+                  onClick={() => setActiveTeam(team)}
+                >
+                  <div className="flex size-6 items-center justify-center rounded-sm border">
+                    <img src={team.logo} className="size-4 shrink-0" />
+                  </div>
+                  {team.name}
+                  <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-2 p-2">
+                <div className="flex size-6 items-center justify-center rounded-md border bg-background">
+                  <Plus className="size-4" />
                 </div>
-                {team.name}
-                <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
+                <div className="font-medium text-muted-foreground">Add team</div>
               </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
-              <div className="flex size-6 items-center justify-center rounded-md border bg-background">
-                <Plus className="size-4" />
-              </div>
-              <div className="font-medium text-muted-foreground">Add team</div>
-            </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

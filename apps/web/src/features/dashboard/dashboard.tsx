@@ -6,7 +6,7 @@ const Dashboard = () => {
   const { mutate } = useLogout()
 
   return (
-    <div>
+    <div className='p-4'>
       <Button onClick={() => mutate()} title='Logout'>
         Logout
       </Button>
