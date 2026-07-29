@@ -1,6 +1,6 @@
 import NotFoundError from "../../core/errors/not-found.js";
 import pool from "../../db/pool.js";
-import type { DeleteServerSchema } from "./server-schema.js";
+import type { DeleteServerSchema } from "@bastion/schemas";
 import type {
   CreateServerData,
   Server,

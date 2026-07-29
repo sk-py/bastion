@@ -1,5 +1,5 @@
 import type z from "zod";
-import type { updateServerSchema } from "./server-schema.js";
+import type { updateServerSchema } from "@bastion/schemas";
 
 export interface Server {
   id: string;

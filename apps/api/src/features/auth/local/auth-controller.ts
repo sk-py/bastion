@@ -1,13 +1,12 @@
 import type { Request, Response } from "express";
-import type { RegisterSchema } from "./auth-schema.js";
+import type { RegisterSchema } from "@bastion/schemas";
 import {
   loginUser,
-  logoutAllDevices,
+  logoutAllDevices, 
   logoutUser,
   registerUser,
 } from "./auth-service.js";
 import { env } from "../../../config.js";
-import type { User } from "./auth-types.js";
 
 export const register = async (req: Request, res: Response) => {
   const { name, email, password }: RegisterSchema = req.body;

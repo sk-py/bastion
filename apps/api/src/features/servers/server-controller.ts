@@ -6,7 +6,7 @@ import {
   updateServerService,
   testServerConnection as testServerConnectionService,
 } from "./server-service.js";
-import type { ServerIdSchema } from "./server-schema.js";
+import type { ServerIdSchema } from "@bastion/schemas";
 
 export const addNewServer = async (req: Request, res: Response) => {
   const createdServer = await addServer(req.body, req.user.id);

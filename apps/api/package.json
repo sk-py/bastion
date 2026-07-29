@@ -16,6 +16,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@bastion/schemas": "workspace:^",
     "argon2": "^0.45.1",
     "axios": "^1.18.1",
     "bcryptjs": "^3.0.3",
@@ -45,6 +46,6 @@
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^5.9.2"
   }
 }

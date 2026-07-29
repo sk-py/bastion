@@ -13,7 +13,7 @@ import {
   type CreateServerSchema,
   type DeleteServerSchema,
   type UpdateServerSchema,
-} from "./server-schema.js";
+} from "@bastion/schemas";
 import type { Server, UpdateServerData } from "./server-types.js";
 
 export const addServer = async (

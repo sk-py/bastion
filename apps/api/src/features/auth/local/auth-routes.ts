@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { login, logout, logoutAll, me, register } from "./auth-controller.js";
 import { validate } from "../../../middleware/validator.js";
-import { loginSchema, registerSchema } from "./auth-schema.js";
+import { loginSchema, registerSchema } from "@bastion/schemas";
 import { requireAuth } from "../../../middleware/authenticate.js";
 
 const router: Router = Router();
