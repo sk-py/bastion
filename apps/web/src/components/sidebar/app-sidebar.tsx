@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import { appRoutes, type Route } from './sidebar-routes';
-import { TeamSwitcher } from './team-switcher';
+import { FooterMenu } from './footer-menu';
 import DashboardNavigation from './sidebar-menu';
 import { Button } from '../ui/button';
 import { useTheme } from 'next-themes';
@@ -98,7 +98,7 @@ export function AppSidebar() {
           <DashboardNavigation routes={appRoutes} />
         </SidebarContent>
         <SidebarFooter className="px-2">
-          <TeamSwitcher teams={teams} />
+          <FooterMenu teams={teams} />
         </SidebarFooter>
       </div>
     </Sidebar>

@@ -1,7 +1,11 @@
 'use client';
 
-import { ChevronsUpDown, Plus } from 'lucide-react';
+import { ChevronsUpDown, Plus, LogOut, Sun, Moon } from 'lucide-react';
 import * as React from 'react';
+import { useTheme } from 'next-themes';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { logout } from '@/api/auth';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,13 +29,27 @@ type Team = {
   plan: string;
 };
 
-export function TeamSwitcher({ teams }: { teams: Team[] }) {
+export const useLogout = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      queryClient.setQueryData(['me'], null);
+    },
+  });
+};
+
+export function FooterMenu({ teams }: { teams: Team[] }) {
   const { isMobile } = useSidebar();
   const [activeTeam, setActiveTeam] = React.useState(teams[0]);
+  
+  const { theme, setTheme } = useTheme();
+  const { mutate: handleLogout } = useLogout();
 
   if (!activeTeam) return null;
 
-  const Logo = "./android-chrome-512x512.png"
+  const Logo = './android-chrome-512x512.png';
 
   return (
     <SidebarMenu>
@@ -61,7 +79,6 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
             sideOffset={4}
           >
             <DropdownMenuGroup>
-
               <DropdownMenuLabel className="text-muted-foreground text-xs">
                 Teams
               </DropdownMenuLabel>
@@ -84,6 +101,30 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
                   <Plus className="size-4" />
                 </div>
                 <div className="font-medium text-muted-foreground">Add team</div>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            
+            <DropdownMenuSeparator />
+            
+            <DropdownMenuGroup>
+              <DropdownMenuItem 
+                className="gap-2 p-2 cursor-pointer" 
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              >
+                <div className="flex size-6 items-center justify-center rounded-md border bg-background">
+                  {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+                </div>
+                <div className="font-medium">Toggle Theme</div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem 
+                className="gap-2 p-2 cursor-pointer text-red-500 hover:text-red-500 hover:bg-red-500/10 focus:text-red-500 focus:bg-red-500/10" 
+                onClick={() => handleLogout()}
+              >
+                <div className="flex size-6 items-center justify-center rounded-md border bg-background text-inherit">
+                  <LogOut className="size-4" />
+                </div>
+                <div className="font-medium">Log out</div>
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>

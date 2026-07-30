@@ -64,7 +64,7 @@ const passPhraseSchema = z
   .max(1024, "Passphrase is too long")
   .optional();
 
-const serverSchema = z.object({
+const serverInputSchema = z.object({
   name: nameSchema,
   host: hostSchema,
   port: portSchema,
@@ -75,7 +75,35 @@ const serverSchema = z.object({
   passphrase: passPhraseSchema,
 });
 
-export const createServerSchema = serverSchema.superRefine((data, ctx) => {
+export const serverSchema = z.object({
+  id: z.uuid(),
+  userId: z.uuid(),
+
+  name: nameSchema,
+  host: hostSchema,
+  port: portSchema,
+  username: usernameSchema,
+  authMethod: authMethodSchema,
+
+  hostname: z.string().nullable(),
+  operatingSystem: z.string().nullable(),
+  architecture: z.string().nullable(),
+  kernelVersion: z.string().nullable(),
+  sshVersion: z.string().nullable(),
+
+  cpuCoreCount: z.number().int().nullable(),
+  memoryTotalBytes: z.number().nullable(),
+  diskTotalBytes: z.number().nullable(),
+
+  hostFingerprint: z.string().nullable(),
+  lastConnectedAt: z.iso.datetime().nullable(),
+  discoveredAt: z.iso.datetime().nullable(),
+
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const createServerSchema = serverInputSchema.superRefine((data, ctx) => {
   if (data.authMethod === "password") {
     if (!data.password) {
       ctx.addIssue({
@@ -115,7 +143,7 @@ export const createServerSchema = serverSchema.superRefine((data, ctx) => {
   }
 });
 
-export const updateServerSchema = serverSchema
+export const updateServerSchema = serverInputSchema
   .partial()
   .superRefine((data, ctx) => {
     if (data.authMethod === "password" && !data.password) {

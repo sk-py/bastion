@@ -47,6 +47,41 @@ export async function up(pgm: MigrationBuilder): Promise<void> {
     encrypted_passphrase: {
       type: "text",
     },
+    
+    hostname: {
+      type: "text",
+    },
+    operating_system: {
+      type: "text",
+    },
+    architecture: {
+      type: "text",
+    },
+    kernel_version: {
+      type: "text",
+    },
+    ssh_version: {
+      type: "text",
+    },
+    cpu_core_count: {
+      type: "integer",
+    },
+    memory_total_bytes: {
+      type: "bigint",
+    },
+    disk_total_bytes: {
+      type: "bigint",
+    },
+    host_fingerprint: {
+      type: "text",
+    },
+    last_connected_at: {
+      type: "timestamptz",
+    },
+    discovered_at: {
+      type: "timestamptz",
+    },
+
     created_at: {
       type: "timestamptz",
       notNull: true,

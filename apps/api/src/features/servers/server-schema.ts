@@ -115,6 +115,7 @@ export const createServerSchema = serverSchema.superRefine((data, ctx) => {
 
 export const updateServerSchema = serverSchema
   .partial()
+  .strict()
   .superRefine((data, ctx) => {
     if (data.authMethod === "password" && !data.password) {
       ctx.addIssue({
@@ -134,7 +135,7 @@ export const updateServerSchema = serverSchema
       });
     }
 
-     if (data.authMethod === "password" && data.privateKey) {
+    if (data.authMethod === "password" && data.privateKey) {
       ctx.addIssue({
         code: "custom",
         path: ["privateKey"],
@@ -142,7 +143,7 @@ export const updateServerSchema = serverSchema
           "Private key must not be provided when using password authentication.",
       });
     }
- 
+
     if (data.authMethod === "private_key" && data.password) {
       ctx.addIssue({
         code: "custom",
@@ -151,7 +152,6 @@ export const updateServerSchema = serverSchema
           "Password must not be provided when using private key authentication.",
       });
     }
-
   });
 
 export const serverIdSchema = z.object({

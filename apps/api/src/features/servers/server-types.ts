@@ -12,6 +12,17 @@ export interface Server {
   encryptedPassword?: string | null;
   encryptedPrivateKey?: string | null;
   encryptedPassphrase?: string | null;
+  hostname: string | null;
+  operatingSystem: string | null;
+  architecture: string | null;
+  kernelVersion: string | null;
+  sshVersion: string | null;
+  cpuCoreCount: number | null;
+  memoryTotalBytes: bigint | null;
+  diskTotalBytes: bigint | null;
+  hostFingerprint: string | null;
+  lastConnectedAt: Date | null;
+  discoveredAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,7 +38,6 @@ export interface CreateServerData {
   encryptedPassphrase: string | null;
 }
 
-
 export interface UpdateServerData {
   id: string;
   userId: string;
@@ -39,7 +49,17 @@ export interface UpdateServerData {
   encryptedPassword: string | null;
   encryptedPrivateKey: string | null;
   encryptedPassphrase: string | null;
+  hostname: string | null;
+  operatingSystem: string | null;
+  architecture: string | null;
+  kernelVersion: string | null;
+  sshVersion: string | null;
+  cpuCoreCount: number | null;
+  memoryTotalBytes: bigint | null;
+  diskTotalBytes: bigint | null;
+  hostFingerprint: string | null;
+  lastConnectedAt: Date | null;
+  discoveredAt: Date | null;
 }
-
 
 export type UpdateServerInput = z.infer<typeof updateServerSchema>;

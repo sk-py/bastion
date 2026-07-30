@@ -1,5 +1,5 @@
 import NotFoundError from "../../core/errors/not-found.js";
-import { testConnection } from "../../core/ssh/ssh-service.js";
+import { discoverServer, testConnection } from "../../core/ssh/ssh-service.js";
 import type { SSHConfig } from "../../core/ssh/ssh-types.js";
 import { decrypt, encrypt } from "../../core/utils/encryption.js";
 import {
@@ -7,6 +7,7 @@ import {
   deleteServer,
   fetchAllServers,
   fetchServerById,
+  updateDiscovery,
   updateServer,
 } from "./server-repository.js";
 import {
@@ -15,6 +16,7 @@ import {
   type UpdateServerSchema,
 } from "@bastion/schemas";
 import type { Server, UpdateServerData } from "./server-types.js";
+import logger from "src/core/logger.js";
 
 export const addServer = async (
   data: CreateServerSchema,
@@ -30,6 +32,27 @@ export const addServer = async (
     { ...data, encryptedPassword, encryptedPassphrase, encryptedPrivateKey },
     userId,
   );
+
+  try {
+    const metadata = await discoverServer({
+      host: createdServer.host,
+      port: createdServer.port,
+      username: createdServer.username,
+      authMethod: createdServer.authMethod,
+      privateKey: data.privateKey!,
+      password: data.password!,
+      passphrase: data.passphrase!,
+    });
+
+    return await updateDiscovery(createdServer.id, metadata);
+  } catch (error) {
+    logger.warn("Server discovery failed", {
+      serverId: createdServer.id,
+      host: createdServer.host,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+
   return createdServer;
 };
 
@@ -51,6 +74,7 @@ export const updateServerService = async (
 
   const serverToUpdate: UpdateServerData = {
     id: existingServer.id,
+
     userId: existingServer.userId,
     name: data.name ?? existingServer.name,
     host: data.host ?? existingServer.host,
@@ -60,6 +84,17 @@ export const updateServerService = async (
     encryptedPassword: existingServer.encryptedPassword ?? null,
     encryptedPrivateKey: existingServer.encryptedPrivateKey ?? null,
     encryptedPassphrase: existingServer.encryptedPassphrase ?? null,
+    hostname: existingServer.hostname ?? null,
+    operatingSystem: existingServer.operatingSystem ?? null,
+    architecture: existingServer.architecture ?? null,
+    kernelVersion: existingServer.kernelVersion ?? null,
+    sshVersion: existingServer.sshVersion ?? null,
+    cpuCoreCount: existingServer.cpuCoreCount ?? null,
+    memoryTotalBytes: existingServer.memoryTotalBytes ?? null,
+    diskTotalBytes: existingServer.diskTotalBytes ?? null,
+    hostFingerprint: existingServer.hostFingerprint ?? null,
+    lastConnectedAt: existingServer.lastConnectedAt ?? null,
+    discoveredAt: existingServer.discoveredAt ?? null,
   };
 
   if (serverToUpdate.authMethod === "password") {
