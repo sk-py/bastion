@@ -1,10 +1,8 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Plus, Eye, Edit2, Trash2, Activity, Server, CheckCircle2, XCircle } from "lucide-react";
-import { Controller, useForm } from "react-hook-form";
+import { useState, useEffect } from "react";
+import { Search, Plus, Eye, Edit2, Trash2, Activity, Server as ServerIcon } from "lucide-react";
+import { Controller, useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { toast } from "sonner"; // Assuming sonner is used for shadcn toasts
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,70 +10,268 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { api } from "@/api/axios";
-import { createServerSchema, updateServerSchema, type CreateServerSchema, type UpdateServerSchema } from "@bastion/schemas";
 import { Label } from "@/components/ui/label";
+import { createServerSchema, updateServerSchema, type CreateServerSchema, type UpdateServerSchema } from "@bastion/schemas";
 
-const OSIcon = ({ os }: { os: string | null }) => {
-  if (!os) return <Server className="w-4 h-4 text-muted-foreground" />;
-  const lower = os.toLowerCase();
-  if (lower.includes("ubuntu")) {
-    return <img src="/ubuntu.svg" alt="Ubuntu" className="w-4 h-4 object-contain" />;
-  }
-  if (lower.includes("debian")) {
-    return <img src="/debian.svg" alt="Debian" className="w-4 h-4 object-contain" />;
-  }
-  if (lower.includes("centos")) {
-    return <img src="/cent-os.svg" alt="CentOS" className="w-4 h-4 object-contain" />;
-  }
-  return <Server className="w-4 h-4 text-muted-foreground" />;
+import { useServers, useAddServer, useUpdateServer, useTestServerConnection } from "./hooks/use-servers";
+
+import ubuntuLogo from "@/assets/os-icons/ubuntu.svg";
+import debianLogo from "@/assets/os-icons/debian.svg";
+import centosLogo from "@/assets/os-icons/cent-os.svg";
+
+// --- Types ---
+
+export interface Server {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  username: string;
+  authMethod: "password" | "private_key";
+  operatingSystem: string | null;
+  lastConnectedAt: string | null;
+  hostname: string | null;
+  architecture: string | null;
+  kernelVersion: string | null;
+  cpuCoreCount: number | null;
+}
+
+type ServerFormValues = {
+  name: string;
+  host: string;
+  port: number;
+  username: string;
+  authMethod: "password" | "private_key";
+  password?: string;
+  privateKey?: string;
+  passphrase?: string;
 };
 
+// --- Subcomponents ---
+
+const OSIcon = ({ os }: { os: string | null }) => {
+  if (!os) return <ServerIcon className="w-4 h-4 text-muted-foreground" />;
+  const lower = os.toLowerCase();
+  if (lower.includes("ubuntu")) return <img src={ubuntuLogo} alt="Ubuntu" className="w-4 h-4 object-contain" />;
+  if (lower.includes("debian")) return <img src={debianLogo} alt="Debian" className="w-4 h-4 object-contain" />;
+  if (lower.includes("centos")) return <img src={centosLogo} alt="CentOS" className="w-4 h-4 object-contain" />;
+  return <ServerIcon className="w-4 h-4 text-muted-foreground" />;
+};
+
+function ServerFormFields({ form }: { form: UseFormReturn<any> }) {
+  const { register, control, watch, formState: { errors } } = form;
+  const watchAuthMethod = watch("authMethod");
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Name *</Label>
+          <Input id="name" placeholder="e.g. Production Server" {...register("name")} />
+          {errors.name && <p className="text-sm text-destructive">{errors.name.message as string}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="host">Host *</Label>
+          <Input id="host" placeholder="e.g. 192.168.1.10" {...register("host")} />
+          {errors.host && <p className="text-sm text-destructive">{errors.host.message as string}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="port">Port *</Label>
+          <Input id="port" type="number" {...register("port", { valueAsNumber: true })} />
+          {errors.port && <p className="text-sm text-destructive">{errors.port.message as string}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="username">Username *</Label>
+          <Input id="username" placeholder="e.g. ubuntu" {...register("username")} />
+          {errors.username && <p className="text-sm text-destructive">{errors.username.message as string}</p>}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <Label>Authentication Method</Label>
+        <Controller
+          control={control}
+          name="authMethod"
+          render={({ field }) => (
+            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-6">
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="password" id="password" />
+                <Label htmlFor="password" className="font-normal cursor-pointer">Password</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="private_key" id="private_key" />
+                <Label htmlFor="private_key" className="font-normal cursor-pointer">Private Key</Label>
+              </div>
+            </RadioGroup>
+          )}
+        />
+      </div>
+
+      {watchAuthMethod === "password" ? (
+        <div className="space-y-2">
+          <Label htmlFor="passwordInput">Password *</Label>
+          <Input id="passwordInput" type="password" {...register("password")} />
+          {errors.password && <p className="text-sm text-destructive">{errors.password.message as string}</p>}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor="privateKey">Private Key *</Label>
+          <Textarea id="privateKey" className="font-mono h-32" placeholder="-----BEGIN RSA PRIVATE KEY-----" {...register("privateKey")} />
+          {errors.privateKey && <p className="text-sm text-destructive">{errors.privateKey.message as string}</p>}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <Label htmlFor="passphrase">Passphrase (Optional)</Label>
+        <Input id="passphrase" type="password" placeholder="If your key has a passphrase" {...register("passphrase")} />
+        {errors.passphrase && <p className="text-sm text-destructive">{errors.passphrase.message as string}</p>}
+      </div>
+    </>
+  );
+}
+
+function ServerCreateDialog({ isOpen, onClose, onSubmit }: { isOpen: boolean; onClose: () => void; onSubmit: (data: CreateServerSchema) => void }) {
+  const form = useForm<ServerFormValues>({
+    resolver: zodResolver(createServerSchema),
+    defaultValues: { name: "", host: "", port: 22, username: "", authMethod: "password", password: "", privateKey: "", passphrase: "" }
+  });
+
+  useEffect(() => {
+    if (isOpen) form.reset();
+  }, [isOpen, form]);
+
+  const submitHandler = (data: ServerFormValues) => {
+    const payload = { ...data };
+    if (payload.authMethod === "password") delete payload.privateKey;
+    if (payload.authMethod === "private_key") delete payload.password;
+    onSubmit(payload as CreateServerSchema);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Add New Server</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit(submitHandler)} className="space-y-6 py-4">
+          <ServerFormFields form={form} />
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit">Add Server</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ServerEditDialog({ isOpen, onClose, onSubmit, defaultValues }: { isOpen: boolean; onClose: () => void; onSubmit: (data: UpdateServerSchema) => void; defaultValues: Server }) {
+  const form = useForm<ServerFormValues>({
+    resolver: async (data, context, options) => {
+      // 1. Frontend Validation Bypass
+      // We must strip empty unchanged credentials here, otherwise your 
+      // Zod .superRefine will block the submission entirely.
+      const validationPayload: Partial<ServerFormValues> = { ...data };
+      const authUnchanged = validationPayload.authMethod === defaultValues.authMethod;
+      const noCredentialsEntered = !validationPayload.password && !validationPayload.privateKey;
+
+      if (authUnchanged && noCredentialsEntered) {
+        delete validationPayload.authMethod;
+        delete validationPayload.password;
+        delete validationPayload.privateKey;
+        delete validationPayload.passphrase;
+      }
+
+      return zodResolver(updateServerSchema)(validationPayload, context, options);
+    },
+    defaultValues: {
+      name: defaultValues.name,
+      host: defaultValues.host,
+      port: defaultValues.port,
+      username: defaultValues.username,
+      authMethod: defaultValues.authMethod,
+      password: "",
+      privateKey: "",
+      passphrase: ""
+    }
+  });
+
+  useEffect(() => {
+    form.reset({
+      name: defaultValues.name,
+      host: defaultValues.host,
+      port: defaultValues.port,
+      username: defaultValues.username,
+      authMethod: defaultValues.authMethod,
+      password: "",
+      privateKey: "",
+      passphrase: ""
+    });
+  }, [defaultValues, form]);
+
+  const submitHandler = (data: ServerFormValues) => {
+    // 2. True PATCH payload construction
+    // Diff the current form values against the initial defaultValues
+    const patchPayload: Partial<ServerFormValues> = {};
+
+    if (data.name !== defaultValues.name) patchPayload.name = data.name;
+    if (data.host !== defaultValues.host) patchPayload.host = data.host;
+    if (data.port !== defaultValues.port) patchPayload.port = data.port;
+    if (data.username !== defaultValues.username) patchPayload.username = data.username;
+
+    const authUnchanged = data.authMethod === defaultValues.authMethod;
+    const noCredentialsEntered = !data.password && !data.privateKey;
+
+    if (!authUnchanged || !noCredentialsEntered) {
+      patchPayload.authMethod = data.authMethod;
+      if (data.authMethod === "password" && data.password) patchPayload.password = data.password;
+      if (data.authMethod === "private_key" && data.privateKey) patchPayload.privateKey = data.privateKey;
+      if (data.passphrase) patchPayload.passphrase = data.passphrase;
+    }
+
+    // If no fields were actually changed, do not make an API request
+    if (Object.keys(patchPayload).length === 0) {
+      onClose();
+      return;
+    }
+
+    onSubmit(patchPayload as UpdateServerSchema);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Edit Server</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit(submitHandler)} className="space-y-6 py-4">
+          <ServerFormFields form={form} />
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit">Save Changes</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// --- Main Page ---
+
 export default function ServersPage() {
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
 
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [selectedServer, setSelectedServer] = useState<any | null>(null);
+  const [selectedServer, setSelectedServer] = useState<Server | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
-  const { data: serversData, isLoading } = useQuery({
-    queryKey: ["servers"],
-    queryFn: async () => {
-      const res = await api.get("/server/all");
-      return res.data.data;
-    },
-  });
+  const { data: serversData, isLoading } = useServers();
+  const addMutation = useAddServer();
+  const updateMutation = useUpdateServer();
+  const testConnectionMutation = useTestServerConnection();
 
-  const addMutation = useMutation({
-    mutationFn: (data: CreateServerSchema) => api.post("/server/add", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["servers"] });
-      setIsAddOpen(false);
-      toast.success("Server added successfully");
-    },
-    onError: (err: any) => toast.error(err.response?.data?.message || "Failed to add server")
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateServerSchema }) =>
-      api.patch(`/server/update/${id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["servers"] });
-      setIsEditOpen(false);
-      toast.success("Server updated successfully");
-    },
-    onError: (err: any) => toast.error(err.response?.data?.message || "Failed to update server")
-  });
-
-  const testConnectionMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/server/${id}/test`),
-    onSuccess: (res) => toast.success(res.data?.message || "Connection successful"),
-    onError: (err: any) => toast.error(err.response?.data?.message || "Connection failed"),
-  });
-
-  const filteredServers = serversData?.filter((s: any) =>
+  const filteredServers = serversData?.filter((s: Server) =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
     s.host.includes(search)
   );
@@ -120,9 +316,9 @@ export default function ServersPage() {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">Loading...</TableCell></TableRow>
-            ) : filteredServers?.map((server: any) => (
+            ) : filteredServers?.map((server: Server) => (
               <TableRow key={server.id} className="hover:bg-muted/50">
-                <TableCell className="font-medium flex items-center gap-2">
+                <TableCell className="font-medium flex mt-1 items-center justify-start gap-2">
                   <div className={`w-2 h-2 rounded-full ${server.lastConnectedAt ? 'bg-green-500' : 'bg-red-500'}`} />
                   {server.name}
                 </TableCell>
@@ -135,8 +331,8 @@ export default function ServersPage() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <span className={`text-xs ${server.lastConnectedAt ? 'text-green-500' : 'text-red-500'}`}>
-                    {server.lastConnectedAt ? 'Connected' : 'Not Connected'}
+                  <span className={`text-xs ${server.lastConnectedAt ? 'text-green-500' : 'text-muted-foreground'}`}>
+                    {server.lastConnectedAt ? 'Previously Connected' : 'Never Connected'}
                   </span>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
@@ -161,31 +357,38 @@ export default function ServersPage() {
         </Table>
       </div>
 
-      <ServerFormModal
+      <ServerCreateDialog
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
-        onSubmit={(data: CreateServerSchema) => addMutation.mutate(data)}
-        title="Add New Server"
+        onSubmit={(data: CreateServerSchema) => {
+          addMutation.mutate(data, {
+            onSuccess: () => setIsAddOpen(false)
+          });
+        }}
       />
 
       {selectedServer && (
-        <ServerFormModal
+        <ServerEditDialog
           isOpen={isEditOpen}
           onClose={() => { setIsEditOpen(false); setSelectedServer(null); }}
-          onSubmit={(data: UpdateServerSchema) => updateMutation.mutate({ id: selectedServer.id, data })}
-          title="Edit Server"
           defaultValues={selectedServer}
-          isEdit={true}
+          onSubmit={(data: UpdateServerSchema) => {
+            updateMutation.mutate({ id: selectedServer.id, data }, {
+              onSuccess: () => setIsEditOpen(false)
+            });
+          }}
         />
       )}
 
       {selectedServer && (
-        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <Dialog open={isDetailsOpen} onOpenChange={(open) => { if (!open) setIsDetailsOpen(false); }}>
           <DialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-xl">
                 {selectedServer.name}
-                <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded border border-green-500/20">Connected</span>
+                {selectedServer.lastConnectedAt && (
+                  <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded border border-green-500/20">Previously Connected</span>
+                )}
               </DialogTitle>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-6 mt-4">
@@ -230,116 +433,5 @@ export default function ServersPage() {
         </Dialog>
       )}
     </div>
-  );
-}
-
-export function ServerFormModal({ isOpen, onClose, onSubmit, title, defaultValues, isEdit = false }: any) {
-  const { register, handleSubmit, watch, control, formState: { errors } } = useForm({
-    resolver: zodResolver(isEdit ? updateServerSchema : createServerSchema),
-    defaultValues: defaultValues || {
-      name: "",
-      host: "",
-      port: 22,
-      username: "",
-      authMethod: "password",
-      password: "",
-      privateKey: "",
-      passphrase: "",
-      description: ""
-    }
-  });
-
-  const watchAuthMethod = watch("authMethod");
-
-  const submitHandler = (data: any) => {
-    const payload = { ...data };
-    if (payload.authMethod === "password") delete payload.privateKey;
-    if (payload.authMethod === "private_key") delete payload.password;
-    onSubmit(payload);
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(submitHandler)} className="space-y-6 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
-              <Input id="name" placeholder="e.g. Production Server" {...register("name")} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message as string}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="host">Host *</Label>
-              <Input id="host" placeholder="e.g. 192.168.1.10" {...register("host")} />
-              {errors.host && <p className="text-sm text-destructive">{errors.host.message as string}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="port">Port *</Label>
-              <Input id="port" type="number" {...register("port", { valueAsNumber: true })} />
-              {errors.port && <p className="text-sm text-destructive">{errors.port.message as string}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="username">Username *</Label>
-              <Input id="username" placeholder="e.g. ubuntu" {...register("username")} />
-              {errors.username && <p className="text-sm text-destructive">{errors.username.message as string}</p>}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <Label>Authentication Method</Label>
-            <Controller
-              control={control}
-              name="authMethod"
-              render={({ field }) => (
-                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-6">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="password" id="password" />
-                    <Label htmlFor="password" className="font-normal cursor-pointer">Password</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="private_key" id="private_key" />
-                    <Label htmlFor="private_key" className="font-normal cursor-pointer">Private Key</Label>
-                  </div>
-                </RadioGroup>
-              )}
-            />
-          </div>
-
-          {watchAuthMethod === "password" ? (
-            <div className="space-y-2">
-              <Label htmlFor="passwordInput">Password *</Label>
-              <Input id="passwordInput" type="password" {...register("password")} />
-              {errors.password && <p className="text-sm text-destructive">{errors.password.message as string}</p>}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label htmlFor="privateKey">Private Key *</Label>
-              <Textarea id="privateKey" className="font-mono h-32" placeholder="-----BEGIN RSA PRIVATE KEY-----" {...register("privateKey")} />
-              {errors.privateKey && <p className="text-sm text-destructive">{errors.privateKey.message as string}</p>}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="passphrase">Passphrase (Optional)</Label>
-            <Input id="passphrase" type="password" placeholder="If your key has a passphrase" {...register("passphrase")} />
-            {errors.passphrase && <p className="text-sm text-destructive">{errors.passphrase.message as string}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" placeholder="Optional description for this server" {...register("description")} />
-            {errors.description && <p className="text-sm text-destructive">{errors.description.message as string}</p>}
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">{isEdit ? "Save Changes" : "Add Server"}</Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
