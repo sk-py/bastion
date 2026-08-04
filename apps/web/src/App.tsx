@@ -4,6 +4,7 @@ import Dashboard from "./features/dashboard/dashboard"
 import LoginPage from "./features/auth/login"
 import { GuestRoute } from "./components/Layout/guest-route"
 import Layout from "./components/Layout/app-layout"
+import TerminalPage from "./features/terminal/terminalPage"
 
 function App() {
 
@@ -17,6 +18,10 @@ function App() {
             {
               path: "/",
               element: <Dashboard />
+            },
+            {
+              path: "/servers/:id/terminal",
+              element: <TerminalPage />
             }
           ]
         }

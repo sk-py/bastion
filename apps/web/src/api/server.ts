@@ -19,3 +19,9 @@ export const updateServer = async ({
 
 export const testServerConnection = async (id: string) =>
   api.post(`/server/${id}/test`);
+
+
+export const getServerById = async (id: string) => {
+  const res = await api.get(`/server/${id}`);
+  return res.data.data;
+}

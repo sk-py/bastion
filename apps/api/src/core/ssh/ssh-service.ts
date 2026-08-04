@@ -101,7 +101,7 @@ const runCommand = async (client: Client, command: string): Promise<string> => {
   });
 };
 
-const connect = async (config: SSHConfig): Promise<Client> => {
+export const connect = async (config: SSHConfig): Promise<Client> => {
   return new Promise((resolve, reject) => {
     const client = new Client();
 

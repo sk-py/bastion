@@ -135,3 +135,5 @@ export const logoutUser = async (sessionToken: string): Promise<void> => {
 export const logoutAllDevices = async (userId: string): Promise<void> => {
   await deleteSessionsByUserId(userId);
 };
+
+export type PublicUser = ReturnType<typeof toPublicUser>;

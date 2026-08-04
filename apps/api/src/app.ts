@@ -11,10 +11,24 @@ import cors from "cors";
 import { connectToDatabase } from "./db/index.js";
 import cookieParser from "cookie-parser";
 import { env } from "./config.js";
+import { createServer } from "http";
+import { TerminalGateway } from "./features/terminal/terminal-gateway.js";
 dotenv.config();
 
 const PORT = env.PORT || 3002;
+
 const app: Express = express();
+const httpServer = createServer(app);
+
+const terminalGateway = new TerminalGateway();
+
+httpServer.on("upgrade", (request, socket, head) => {
+  if (request.url?.startsWith("/ws/terminal")) {
+    terminalGateway.handleUpgrade(request, socket, head);
+    return;
+  }
+  socket.destroy();
+});
 
 app.use(cors());
 app.set("trust proxy", env.TRUST_PROXY);
@@ -37,7 +51,7 @@ app.use(errorHandlerMiddleware);
 const bootstrap = async () => {
   await connectToDatabase();
 
-  app.listen(PORT, () => {
+  httpServer.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
     Logger.info(`API server started on port ${PORT}`);
   });

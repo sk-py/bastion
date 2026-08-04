@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Eye, Edit2, Trash2, Activity, Server as ServerIcon } from "lucide-react";
+import { Search, Plus, Eye, Edit2, Trash2, Activity, Server as ServerIcon, SquareTerminal } from "lucide-react";
 import { Controller, useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
@@ -18,6 +18,7 @@ import { useServers, useAddServer, useUpdateServer, useTestServerConnection } fr
 import ubuntuLogo from "@/assets/os-icons/ubuntu.svg";
 import debianLogo from "@/assets/os-icons/debian.svg";
 import centosLogo from "@/assets/os-icons/cent-os.svg";
+import { useNavigate } from "react-router";
 
 // --- Types ---
 
@@ -271,6 +272,8 @@ export default function ServersPage() {
   const updateMutation = useUpdateServer();
   const testConnectionMutation = useTestServerConnection();
 
+  const navigate = useNavigate();
+
   const filteredServers = serversData?.filter((s: Server) =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
     s.host.includes(search)
@@ -345,6 +348,9 @@ export default function ServersPage() {
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => { setSelectedServer(server); setIsEditOpen(true); }}>
                       <Edit2 className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                    </Button>
+                    <Button variant="ghost" onClick={() => navigate(`/servers/${server.id}/terminal`)} size="icon" className="hover:text-destructive">
+                      <SquareTerminal className="w-4 h-4 text-muted-foreground hover:text-destructive" />
                     </Button>
                     <Button variant="ghost" size="icon" className="hover:text-destructive">
                       <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
