@@ -10,3 +10,8 @@ export interface TerminalSession {
 export interface TerminalRequest extends IncomingMessage {
   user: PublicUser;
 }
+
+export interface TerminalOptions {
+  cols: number;
+  rows: number;
+}

@@ -2,22 +2,8 @@
 
 import { motion } from 'motion/react';
 import {
-  Activity,
-  DollarSign,
-  Home,
-  Infinity,
-  LinkIcon,
   Moon,
-  Package2,
-  Percent,
-  PieChart,
-  Settings,
-  ShoppingBag,
-  Sparkles,
-  Store,
   Sun,
-  TrendingUp,
-  Users,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -28,7 +14,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
-import { appRoutes, type Route } from './sidebar-routes';
+import { appRoutes } from './sidebar-routes';
 import { FooterMenu } from './footer-menu';
 import DashboardNavigation from './sidebar-menu';
 import { Button } from '../ui/button';
@@ -68,7 +54,7 @@ export function AppSidebar() {
           )}
         >
           <a className="flex items-center gap-2" href="#">
-            <img src='./android-chrome-512x512.png' className='object-contain size-12' />
+            <img src='/android-chrome-512x512.png' className='object-contain size-12' />
           </a>
 
           <motion.div

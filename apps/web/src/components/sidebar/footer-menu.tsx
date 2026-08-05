@@ -49,7 +49,7 @@ export function FooterMenu({ teams }: { teams: Team[] }) {
 
   if (!activeTeam) return null;
 
-  const Logo = './android-chrome-512x512.png';
+  const Logo = '/android-chrome-512x512.png';
 
   return (
     <SidebarMenu>

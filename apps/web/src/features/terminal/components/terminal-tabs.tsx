@@ -7,7 +7,7 @@ interface TerminalTabsProps {
 export function TerminalTabs({ activeTabName }: TerminalTabsProps) {
   return (
     <div className="flex items-center bg-zinc-900 border-b border-zinc-800">
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-r border-zinc-800 border-t-2 border-t-blue-500 text-sm font-medium min-w-[200px] justify-between cursor-default">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-r border-zinc-800 border-t-2 border-t-[#8089FE] text-sm font-medium min-w-[200px] justify-between cursor-default">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500" />
           {activeTabName}

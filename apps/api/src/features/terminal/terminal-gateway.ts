@@ -9,6 +9,7 @@ import { URL } from "node:url";
 import { createTerminalSession } from "./terminal-service.js";
 import type { TerminalRequest } from "./terminal-types.js";
 import UnAuthenticatedError from "src/core/errors/unauthenticated.js";
+import type { RawData } from "ws";
 
 export class TerminalGateway {
   private readonly wss: WebSocketServer;
@@ -63,6 +64,9 @@ export class TerminalGateway {
     const url = new URL(request.url || "", `http://${request.headers.host}`);
     const serverId = url.searchParams.get("serverId");
 
+    const cols = parseInt(url.searchParams.get("cols") || "120", 10);
+    const rows = parseInt(url.searchParams.get("rows") || "32", 10);
+
     if (!serverId) {
       ws.close(1008, "Missing serverId");
       return;
@@ -78,10 +82,39 @@ export class TerminalGateway {
       const { stream, client } = await createTerminalSession(
         request.user.id,
         serverId,
+        { cols, rows },
       );
 
-      ws.on("message", (message, isBinary) => {
-        stream.write(isBinary ? message : message.toString());
+      ws.on("message", (message: RawData) => {
+        try {
+          const payload = JSON.parse(message.toString());
+
+          if (payload.type === "ping") {
+            ws.send(
+              JSON.stringify({
+                type: "pong",
+                timestamp: payload.timestamp,
+              }),
+            );
+            return; // Stop execution here so it doesn't get written to the SSH stream
+          }
+
+          if (payload.type === "resize") {
+            stream.setWindow(
+              payload.rows,
+              payload.cols,
+              payload.height,
+              payload.width,
+            );
+          } else if (payload.type === "input") {
+            stream.write(payload.data);
+          }
+        } catch (error) {
+          logger.error({
+            event: "terminal.message_parse_error",
+            error: (error as Error).message,
+          });
+        }
       });
 
       stream.on("data", (chunk: Buffer) => {
