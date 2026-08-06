@@ -8,6 +8,7 @@ import {
   fetchAllServers,
   fetchServerById,
   updateDiscovery,
+  updateLastConnectedAt,
   updateServer,
 } from "./server-repository.js";
 import {
@@ -170,4 +171,16 @@ export const testServerConnection = async (
   };
 
   await testConnection(sshConfig);
+};
+
+
+export const recordServerConnection = async (
+  serverId: string,
+  userId: string,
+): Promise<void> => {
+  try {
+    await updateLastConnectedAt(serverId, userId);
+  } catch (error) {
+    logger.error("Failed to update lastConnectedAt", { serverId, userId, error });
+  }
 };

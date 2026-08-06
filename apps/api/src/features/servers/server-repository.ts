@@ -194,3 +194,13 @@ export const deleteServer = async (data: DeleteServerSchema): Promise<void> => {
     throw new NotFoundError("Server not found for this specific id");
   }
 };
+
+export const updateLastConnectedAt = async (
+  serverId: string,
+  userId: string,
+): Promise<void> => {
+  await pool.query(
+    "UPDATE servers SET last_connected_at = NOW() WHERE id = $1 AND user_id = $2",
+    [serverId, userId],
+  );
+};

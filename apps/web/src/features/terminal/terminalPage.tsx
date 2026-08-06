@@ -65,7 +65,8 @@ export default function TerminalPage() {
 
     const handleSendInput = (data: string) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({ type: "input", data: applyModifiers(data) }));
+            const encoder = new TextEncoder();
+            wsRef.current.send(encoder.encode(applyModifiers(data)));
             xtermInstance.current?.focus();
         }
     };
@@ -126,16 +127,32 @@ export default function TerminalPage() {
         resizeObserver.observe(terminalRef.current);
 
         const hostIp = window.location.hostname;
-        const ws = new WebSocket(
-            `ws://${hostIp}:18400/ws/terminal?serverId=${server.id}&cols=${term.cols}&rows=${term.rows}`
-        );
+        // Check for an existing session ID for this specific server
+        const savedSessionId = sessionStorage.getItem(`bastion_term_${server.id}`);
+
+        // Append it to the query string if it exists
+        const wsUrl = new URL(`ws://${hostIp}:18400/ws/terminal`);
+        wsUrl.searchParams.set("serverId", server.id);
+        wsUrl.searchParams.set("cols", term.cols.toString());
+        wsUrl.searchParams.set("rows", term.rows.toString());
+        if (savedSessionId) {
+            wsUrl.searchParams.set("sessionId", savedSessionId);
+        }
+
+        const ws = new WebSocket(wsUrl.toString());
+        ws.binaryType = "arraybuffer";
         wsRef.current = ws;
 
         term.onData((data) => {
             if (ws.readyState === WebSocket.OPEN) {
                 // Convert any OS-level line endings from pasted text into standard terminal carriage returns
-                const sanitizedData = data.replace(/\r\n/g, '\r').replace(/\n/g, '\r');
-                ws.send(JSON.stringify({ type: "input", data: applyModifiers(sanitizedData) }));
+                // 1. Strip Bracketed Paste Mode escape sequences (\x1b[200~ and \x1b[201~)
+                let sanitizedData = data.replace(/\x1b\[200~/g, '').replace(/\x1b\[201~/g, '');
+
+                // 2. Sanitize OS-level line endings from pastes
+                sanitizedData = sanitizedData.replace(/\r\n/g, '\r').replace(/\n/g, '\r');
+                const encoder = new TextEncoder();
+                ws.send(encoder.encode(sanitizedData));
             }
         });
 
@@ -182,19 +199,21 @@ export default function TerminalPage() {
         ws.onerror = () => setConnectionStatus("disconnected");
 
         ws.onmessage = async (event) => {
-            if (event.data instanceof Blob) {
-                term.write(await event.data.text());
+            if (event.data instanceof ArrayBuffer) {
+                term.write(new Uint8Array(event.data));  // <--- Synchronous, zero-copy render
                 return;
             }
             try {
                 const payload = JSON.parse(event.data);
 
-                if (payload.type === "pong") {
+                if (payload.type === "session") {
+                    // Save the ID so we can reconnect if the user switches tabs
+                    sessionStorage.setItem(`bastion_term_${server.id}`, payload.sessionId);
+                } else if (payload.type === "pong") {
                     handlePong(payload.timestamp);
-                    return;
                 }
             } catch (e) {
-                term.write(event.data);
+                // Ignore parse errors on control frames
             }
         };
 
@@ -210,6 +229,9 @@ export default function TerminalPage() {
     const handleDisconnect = () => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.close();
+
+            // Destroy the memory of the session
+            sessionStorage.removeItem(`bastion_term_${server!.id}`);
             navigate("/")
         }
     };

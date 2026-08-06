@@ -10,6 +10,8 @@ import { createTerminalSession } from "./terminal-service.js";
 import type { TerminalRequest } from "./terminal-types.js";
 import UnAuthenticatedError from "src/core/errors/unauthenticated.js";
 import type { RawData } from "ws";
+import { recordServerConnection } from "../servers/server-service.js";
+import { sshSessionManager } from "src/core/ssh/ssh-session-manager.js";
 
 export class TerminalGateway {
   private readonly wss: WebSocketServer;
@@ -79,70 +81,89 @@ export class TerminalGateway {
     });
 
     try {
-      const { stream, client } = await createTerminalSession(
-        request.user.id,
-        serverId,
-        { cols, rows },
-      );
+      const existingSessionId = url.searchParams.get("sessionId");
+      let session = existingSessionId
+        ? sshSessionManager.get(existingSessionId)
+        : undefined;
 
-      ws.on("message", (message: RawData) => {
-        try {
-          const payload = JSON.parse(message.toString());
-
-          if (payload.type === "ping") {
-            ws.send(
-              JSON.stringify({
-                type: "pong",
-                timestamp: payload.timestamp,
-              }),
-            );
-            return; // Stop execution here so it doesn't get written to the SSH stream
-          }
-
-          if (payload.type === "resize") {
-            stream.setWindow(
-              payload.rows,
-              payload.cols,
-              payload.height,
-              payload.width,
-            );
-          } else if (payload.type === "input") {
-            stream.write(payload.data);
-          }
-        } catch (error) {
-          logger.error({
-            event: "terminal.message_parse_error",
-            error: (error as Error).message,
-          });
-        }
-      });
-
-      stream.on("data", (chunk: Buffer) => {
-        ws.send(chunk);
-      });
-
-      ws.on("close", () => {
-        stream.close();
-        client.end();
-
+      if (session && session.shell) {
+        // Reattach to existing active connection
         logger.info({
-          event: "terminal.disconnected",
+          event: "terminal.reattached",
           userId: request.user.id,
           serverId,
         });
+      } else {
+        // Establish a brand new connection
+        const { stream, client } = await createTerminalSession(
+          request.user.id,
+          serverId,
+          { cols, rows },
+        );
+        await recordServerConnection(serverId, request.user.id);
+
+        session = sshSessionManager.create(request.user.id, serverId, client);
+        session.shell = stream;
+      }
+
+      session.ws = ws;
+
+      // 1. Send the active ID to the frontend
+      ws.send(
+        JSON.stringify({ type: "session", sessionId: session.sessionId }),
+      );
+
+      // 2. Clean up any lingering data listeners from previous unmounted WebSockets
+      session.shell.removeAllListeners("data");
+      session.shell.removeAllListeners("close");
+
+      // 3. Bind the active stream to the new WebSocket
+      session.shell.on("data", (chunk: Buffer) => {
+        if (ws.readyState === ws.OPEN) {
+          ws.send(chunk);
+        }
       });
 
-      stream.on("close", () => {
-        client.end();
-        if (ws.readyState === ws.OPEN) {
+      session.shell.on("close", () => {
+        if (ws.readyState === ws.OPEN)
           ws.close(1000, "Terminal session closed");
+      });
+
+      // 4. Force a redraw of the Linux prompt so the screen isn't blank on reattachment
+      if (existingSessionId) {
+        session.shell.write("\r");
+      }
+
+      // -- The rest of your WS event handlers remain exactly the same --
+      ws.on("message", (message: RawData, isBinary: boolean) => {
+        sshSessionManager.touch(session!.sessionId);
+
+        if (isBinary) {
+          session!.shell?.write(message);
+          return;
+        }
+
+        try {
+          const payload = JSON.parse(message.toString());
+          if (payload.type === "ping") {
+            ws.send(
+              JSON.stringify({ type: "pong", timestamp: payload.timestamp }),
+            );
+          } else if (payload.type === "resize") {
+            session!.shell?.setWindow(
+              payload.rows,
+              payload.cols,
+              payload.height || 0,
+              payload.width || 0,
+            );
+          }
+        } catch (error) {
+          // ignore
         }
       });
 
-      client.on("close", () => {
-        if (ws.readyState === ws.OPEN) {
-          ws.close(1000, "SSH client closed");
-        }
+      ws.on("close", () => {
+        sshSessionManager.markClosing(session!.sessionId);
       });
 
       ws.on("error", (error) => {

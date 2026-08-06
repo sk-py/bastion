@@ -5,6 +5,7 @@ import LoginPage from "./features/auth/login"
 import { GuestRoute } from "./components/Layout/guest-route"
 import Layout from "./components/Layout/app-layout"
 import TerminalPage from "./features/terminal/terminalPage"
+import GlobalErrorPage from "./components/Layout/global-error-page"
 
 function App() {
 
@@ -35,6 +36,10 @@ function App() {
           element: <LoginPage />
         }
       ]
+    },
+    {
+      path: "*",
+      element: <GlobalErrorPage status={404} />,
     }
   ])
 
