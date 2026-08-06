@@ -87,6 +87,20 @@ export default function TerminalPage() {
             fontSize: window.innerWidth < 768 ? MOBILE_FONT_SIZE : DESKTOP_FONT_SIZE,
         });
 
+        term.attachCustomKeyEventHandler((event) => {
+            if (event.ctrlKey && event.code === "KeyC" && event.type === "keydown") {
+                if (term.hasSelection()) {
+                    navigator.clipboard.writeText(term.getSelection());
+                    term.clearSelection();
+                    return false; // To suppress the \x03 SIGINT payload
+                }
+                // If nothing is selected, let it pass through to kill the running process
+                return true;
+            }
+
+            return true; // Allow all other key events to pass through
+        })
+
         const fitAddon = new FitAddon();
         term.loadAddon(fitAddon);
 
@@ -116,6 +130,14 @@ export default function TerminalPage() {
             `ws://${hostIp}:18400/ws/terminal?serverId=${server.id}&cols=${term.cols}&rows=${term.rows}`
         );
         wsRef.current = ws;
+
+        term.onData((data) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                // Convert any OS-level line endings from pasted text into standard terminal carriage returns
+                const sanitizedData = data.replace(/\r\n/g, '\r').replace(/\n/g, '\r');
+                ws.send(JSON.stringify({ type: "input", data: applyModifiers(sanitizedData) }));
+            }
+        });
 
         term.onResize(({ cols, rows }) => {
             setTermDimensions({ cols, rows });
@@ -175,12 +197,6 @@ export default function TerminalPage() {
                 term.write(event.data);
             }
         };
-
-        term.onData((data) => {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: "input", data: applyModifiers(data) }));
-            }
-        });
 
         return () => {
             resizeObserver.disconnect();
