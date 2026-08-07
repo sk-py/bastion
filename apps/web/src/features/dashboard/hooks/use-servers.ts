@@ -1,11 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { addServer, getAllServers, testServerConnection, updateServer } from "@/api/server";
+import {
+  addServer,
+  getAllServers,
+  testServerConnection,
+  updateServer,
+} from "@/api/server";
 
 export const useServers = () => {
   return useQuery({
     queryKey: ["servers"],
     queryFn: getAllServers,
+    refetchOnWindowFocus: false,
   });
 };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, type RefObject } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import type { ConnectionStatus } from "../terminalPage";
 
 export function useTerminalMetrics(
@@ -8,39 +8,53 @@ export function useTerminalMetrics(
     const [uptime, setUptime] = useState(0);
     const [latency, setLatency] = useState<number | null>(null);
 
-    // Session Timer Effect
+    // Session timer
     useEffect(() => {
-        let interval: number;
-        if (connectionStatus === "connected") {
-            interval = setInterval(() => {
-                setUptime((prev) => prev + 1);
-            }, 1000);
-        } else {
+        if (connectionStatus !== "connected") {
             setUptime(0);
             setLatency(null);
+            return;
         }
+        
+        const interval = window.setInterval(() => {
+            setUptime((prev) => prev + 1);
+        }, 1000);
+        
         return () => clearInterval(interval);
     }, [connectionStatus]);
 
-    // Ping Interval Effect
+    // Independent Ping/Pong listener
     useEffect(() => {
-        let pingInterval: number;
-        if (connectionStatus === "connected") {
-            pingInterval = setInterval(() => {
-                if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ 
-                        type: "ping", 
-                        timestamp: Date.now() 
-                    }));
+        if (connectionStatus !== "connected") return;
+        const ws = wsRef.current;
+        if (!ws) return;
+
+        const pingInterval = window.setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "ping", timestamp: Date.now() }));
+            }
+        }, 3000);
+
+        const handleMessage = (event: MessageEvent) => {
+            if (typeof event.data !== "string") return; // Ignore binary terminal frames
+            
+            try {
+                const payload = JSON.parse(event.data);
+                if (payload.type === "pong") {
+                    setLatency(Date.now() - payload.timestamp);
                 }
-            }, 3000);
-        }
-        return () => clearInterval(pingInterval);
+            } catch {
+                // Ignore non-JSON frames
+            }
+        };
+
+        ws.addEventListener("message", handleMessage);
+
+        return () => {
+            clearInterval(pingInterval);
+            ws.removeEventListener("message", handleMessage);
+        };
     }, [connectionStatus, wsRef]);
 
-    const handlePong = (timestamp: number) => {
-        setLatency(Date.now() - timestamp);
-    };
-
-    return { uptime, latency, handlePong };
+    return { uptime, latency };
 }

@@ -108,33 +108,58 @@ export class TerminalGateway {
 
       session.ws = ws;
 
-      // 1. Send the active ID to the frontend
+      // Send the active ID to the frontend
       ws.send(
         JSON.stringify({ type: "session", sessionId: session.sessionId }),
       );
 
-      // 2. Clean up any lingering data listeners from previous unmounted WebSockets
+      const buffered = sshSessionManager.getBufferedOutput(session.sessionId);
+      if (buffered.length > 0) {
+        ws.send(buffered);
+      }
+
+      // Clean up any lingering data listeners from previous unmounted WebSockets
       session.shell.removeAllListeners("data");
       session.shell.removeAllListeners("close");
 
-      // 3. Bind the active stream to the new WebSocket
+      // Capture live chunks into the chunked array
       session.shell.on("data", (chunk: Buffer) => {
+        sshSessionManager.appendOutput(session!.sessionId, chunk);
         if (ws.readyState === ws.OPEN) {
           ws.send(chunk);
         }
       });
 
-      session.shell.on("close", () => {
-        if (ws.readyState === ws.OPEN)
-          ws.close(1000, "Terminal session closed");
+     session.shell.on("close", () => {
+        // Tell the frontend the connection died
+        if (ws.readyState === ws.OPEN) {
+          ws.close(1000, "Remote shell terminated");
+        }
+        
+        // Nuke the session from memory so it doesn't linger
+        // (Use whatever delete/remove method exists on your SshSessionManager)
+        if (session) {
+            sshSessionManager.terminate(session.sessionId); // Or .remove(), depending on your implementation
+        }
       });
 
-      // 4. Force a redraw of the Linux prompt so the screen isn't blank on reattachment
-      if (existingSessionId) {
-        session.shell.write("\r");
-      }
+      // Also catch if the entire SSH client connection drops
+      session.client.on("close", () => {
+        if (ws.readyState === ws.OPEN) ws.close(1000, "SSH connection dropped");
+        if (session) sshSessionManager.terminate(session.sessionId);
+      });
+      
+      session.client.on("error", (err) => {
+        logger.error({ event: "ssh.client_error", error: err.message, serverId });
+        if (ws.readyState === ws.OPEN) ws.close(1011, "SSH connection error");
+        if (session) sshSessionManager.terminate(session.sessionId);
+      });
 
-      // -- The rest of your WS event handlers remain exactly the same --
+      // Force a redraw of the Linux prompt so the screen isn't blank on reattachment
+      // if (existingSessionId) {
+      //   session.shell.write("\r");  // Not required
+      // }
+
       ws.on("message", (message: RawData, isBinary: boolean) => {
         sshSessionManager.touch(session!.sessionId);
 

@@ -1,16 +1,19 @@
-import { Clock, Lock, ShieldAlert, ShieldCheck, Signal, TerminalSquare, Wifi } from "lucide-react";
+import { Clock, ShieldAlert, ShieldCheck, TerminalSquare, Wifi } from "lucide-react";
+import type { RefObject } from "react";
 import type { ConnectionStatus } from "../terminalPage";
+import { useTerminalMetrics } from "../hooks/use-terminal-metrics";
 
 interface TerminalStatusBarProps {
   status: ConnectionStatus;
   rows: number;
   cols: number;
-  uptime: number; // in seconds
-  latency: number | null; // in milliseconds
+  wsRef: RefObject<WebSocket | null>;
+  isFullscreen: boolean;
 }
 
-export function TerminalStatusBar({ status, rows, cols, latency, uptime }: TerminalStatusBarProps) {
-  
+export function TerminalStatusBar({ status, rows, cols, wsRef, isFullscreen }: TerminalStatusBarProps) {
+  const { uptime, latency } = useTerminalMetrics(status, wsRef);
+
   const formatTime = (totalSeconds: number) => {
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
@@ -19,12 +22,14 @@ export function TerminalStatusBar({ status, rows, cols, latency, uptime }: Termi
     return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
   };
 
+  // State continues tracking in the background; UI is just hidden.
+  if (isFullscreen) return null;
+
   const isConnected = status === "connected";
-  
- return (
-    <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-900 border-t border-border text-xs text-muted-foreground select-none shrink-0 h-8">
+
+  return (
+    <div className="flex items-center justify-between px-3 py-1.5 bg-background border-t border-border text-xs text-muted-foreground select-none shrink-0 h-8">
       <div className="flex items-center gap-4">
-        {/* Status */}
         <div className="flex items-center gap-1.5">
           {isConnected ? (
             <ShieldCheck size={14} className="text-green-500" />
@@ -34,22 +39,19 @@ export function TerminalStatusBar({ status, rows, cols, latency, uptime }: Termi
           <span className="capitalize">{status}</span>
         </div>
 
-        {/* Network Latency */}
-        <div className="flex items-center gap-1.5 hidden sm:flex">
+        <div className=" items-center gap-1.5 hidden sm:flex">
           <Wifi size={14} className={latency && latency < 100 ? "text-green-500" : latency && latency > 250 ? "text-red-500" : ""} />
           <span>{latency ? `${latency}ms` : "--ms"}</span>
         </div>
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Dimensions */}
-        <div className="flex items-center gap-1.5 hidden sm:flex">
+        <div className="items-center gap-1.5 hidden sm:flex">
           <TerminalSquare size={14} />
           <span>{cols}x{rows}</span>
         </div>
 
-        {/* Session Timer */}
-        <div className="flex items-center gap-1.5 text-foreground font-mono bg-zinc-950 px-2 py-0.5 rounded border border-border">
+        <div className="flex items-center gap-1.5 text-foreground font-mono bg-secondary px-2 py-0.5 rounded border border-border">
           <Clock size={12} className="text-muted-foreground" />
           <span>{formatTime(uptime)}</span>
         </div>

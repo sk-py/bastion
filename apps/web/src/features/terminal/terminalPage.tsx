@@ -11,19 +11,41 @@ import { FitAddon } from "@xterm/addon-fit";
 import { MobileTerminalToolbar } from "./components/mobile-toolbar";
 import { useViewport } from "./hooks/use-viewport";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Maximize, Minimize } from "lucide-react";
+import { CheckCheck, ChevronRight, Maximize, Minimize, Upload } from "lucide-react";
 import { useTerminalMetrics } from "./hooks/use-terminal-metrics";
+import { TERMINAL_THEMES } from "./utils/terminal-themes";
+import { useTheme } from "next-themes";
+import { api } from "@/api/axios";
 
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 const DESKTOP_FONT_SIZE = 14;
 const MOBILE_FONT_SIZE = 12;
 
+type UploadStatus =
+    | { state: "idle" }
+    | { state: "uploading"; filename: string; percent: number }
+    | { state: "success"; filename: string }
+    | { state: "error"; filename: string; message: string };
+
 export default function TerminalPage() {
     const { id: serverId } = useParams<{ id: string }>();
     const [termDimensions, setTermDimensions] = useState({ rows: 32, cols: 120 });
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
     const [isFullscreen, setIsFullscreen] = useState(false);
+
+    const [isDragging, setIsDragging] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState<UploadStatus>({ state: "idle" });
+
+    const { resolvedTheme } = useTheme()
+
+    const isDark = resolvedTheme === "dark"
+
+    useEffect(() => {
+        if (!xtermInstance.current) return;
+        xtermInstance.current.options.theme = TERMINAL_THEMES[isDark ? "dark" : "light"];
+    }, [isDark]);
+
 
     // Fetch all servers and find the one matching the URL param
     const { data: servers, isLoading, isError } = useServers();
@@ -75,7 +97,16 @@ export default function TerminalPage() {
     const xtermInstance = useRef<Terminal | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
 
-    const { uptime, latency, handlePong } = useTerminalMetrics(connectionStatus, wsRef);
+    // To handle cases where drops landing outside the dropzone navigates the tab to the raw file and kills the live session
+    useEffect(() => {
+        const preventDefault = (e: DragEvent) => e.preventDefault();
+        window.addEventListener("dragover", preventDefault);
+        window.addEventListener("drop", preventDefault);
+        return () => {
+            window.removeEventListener("dragover", preventDefault);
+            window.removeEventListener("drop", preventDefault);
+        };
+    }, []);
 
 
     useEffect(() => {
@@ -83,7 +114,7 @@ export default function TerminalPage() {
 
         const term = new Terminal({
             cursorBlink: true,
-            theme: { background: "#000000", foreground: "#ffffff" },
+            theme: TERMINAL_THEMES[isDark ? "dark" : "light"],
             rightClickSelectsWord: true,
             fontSize: window.innerWidth < 768 ? MOBILE_FONT_SIZE : DESKTOP_FONT_SIZE,
         });
@@ -188,15 +219,37 @@ export default function TerminalPage() {
             xtermInstance.current?.focus();
         };
 
-        ws.onclose = () => {
+        ws.onclose = (event) => {
             setConnectionStatus("disconnected");
-            if (wsRef.current?.readyState === WebSocket.CLOSED) {
-                navigate("/");
-                resizeObserver.disconnect();
+            sessionStorage.removeItem(`bastion_term_${server!.id}`);
+
+            if (term) {
+                term.write(`\r\n\x1b[31m[System] Connection closed (Code: ${event.code}).\x1b[0m\r\n`);
+                term.write(`\x1b[33m[System] Redirecting to home in 3 seconds...\x1b[0m\r\n`);
+                term.options.cursorBlink = false;
             }
 
-        }
-        ws.onerror = () => setConnectionStatus("disconnected");
+            // Auto-redirect after 3 seconds
+            setTimeout(() => {
+                navigate("/");
+            }, 3000);
+        };
+
+        ws.onerror = () => {
+            setConnectionStatus("disconnected");
+            sessionStorage.removeItem(`bastion_term_${server!.id}`);
+
+            if (term) {
+                term.write("\r\n\x1b[31m[System] WebSocket connection error.\x1b[0m\r\n");
+                term.write(`\x1b[33m[System] Redirecting to home in 3 seconds...\x1b[0m\r\n`);
+                term.options.cursorBlink = false;
+            }
+
+            // Auto-redirect after 3 seconds
+            setTimeout(() => {
+                navigate("/");
+            }, 3000);
+        };
 
         ws.onmessage = async (event) => {
             if (event.data instanceof ArrayBuffer) {
@@ -207,10 +260,11 @@ export default function TerminalPage() {
                 const payload = JSON.parse(event.data);
 
                 if (payload.type === "session") {
-                    // Save the ID so we can reconnect if the user switches tabs
+                    // Save the ID so we can reconnect
                     sessionStorage.setItem(`bastion_term_${server.id}`, payload.sessionId);
-                } else if (payload.type === "pong") {
-                    handlePong(payload.timestamp);
+                } else if (payload.type === "upload-progress") {
+                    // Update React state directly from the backend SFTP progress stream
+                    setUploadStatus(prev => prev.state === "uploading" ? { ...prev, percent: payload.percent } : prev)
                 }
             } catch (e) {
                 // Ignore parse errors on control frames
@@ -218,22 +272,123 @@ export default function TerminalPage() {
         };
 
         return () => {
+
+            // 1. Nullify the listeners so they don't fire on intentional unmount/cleanup
+            ws.onclose = null;
+            ws.onerror = null;
+            ws.onmessage = null;
+
+            // 2. Now it is safe to close the socket without triggering the 5-second time bomb
+            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                ws.close();
+            }
+
             resizeObserver.disconnect();
             ws.close();
             term.dispose();
             xtermInstance.current = null;
             wsRef.current = null;
         };
-    }, [server]);
+    }, [server?.id]);
+
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!e.dataTransfer.types.includes("Files")) return
+        if (!isDragging && uploadStatus.state !== "uploading") setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Ensure we only dismiss if leaving the parent container, not hovering over child text nodes
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setIsDragging(false);
+        }
+    };
+
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+
+        if (uploadStatus.state === "uploading") return;
+
+        const file = e.dataTransfer.files?.[0];
+        if (!file) return;
+
+        const sessionId = sessionStorage.getItem(`bastion_term_${server!.id}`);
+        if (!sessionId) {
+            setUploadStatus({ state: "error", filename: file.name, message: "No active session found." });
+            setTimeout(() => setUploadStatus({ state: "idle" }), 4000);
+            return;
+        }
+
+        // 1. Pre-flight check: Verify if the file already exists on the remote host
+        try {
+            const existsRes = await api.get("/terminal/file/exists", {
+                params: { filename: file.name },
+                headers: { "x-session-id": sessionId }
+            });
+
+            if (existsRes.data.exists) {
+                setUploadStatus({
+                    state: "error",
+                    filename: file.name,
+                    message: "A file with this name already exists."
+                });
+                setTimeout(() => setUploadStatus({ state: "idle" }), 4000);
+                return; // Halt immediately. The upload request never fires.
+            }
+        } catch (err) {
+            // If the stat check fails (e.g. network blip or 500 error), 
+            // swallow it and let the main upload block attempt the transfer anyway.
+            // The backend 'wx' flag will serve as the final safety net.
+        }
+
+        // 2. Proceed with actual upload
+        setUploadStatus({ state: "uploading", filename: file.name, percent: 0 });
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const response = await api.post("/terminal/file/upload", formData, {
+                headers: { "x-session-id": sessionId }
+            });
+
+            if (response.status !== 200) {
+                throw new Error(response.data?.error || "Upload failed");
+            }
+
+            setUploadStatus({ state: "success", filename: file.name });
+        } catch (err: any) {
+            // Handle standard network failures and the rare TOCTOU 'wx' collision race
+            let errorMessage = err.response?.data?.error || err.message || "Upload failed";
+            if (errorMessage.toLowerCase().includes("network error")) {
+                errorMessage = "Upload connection interrupted.";
+            }
+
+            setUploadStatus({ state: "error", filename: file.name, message: errorMessage });
+        } finally {
+            setTimeout(() => {
+                setUploadStatus(prev => (prev.state !== "uploading" ? { state: "idle" } : prev));
+            }, 4000);
+        }
+    };
+
 
     const handleDisconnect = () => {
+        // Only try to close if it's actually open
         if (wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.close();
-
-            // Destroy the memory of the session
-            sessionStorage.removeItem(`bastion_term_${server!.id}`);
-            navigate("/")
         }
+
+        // Always execute the cleanup and navigation
+        sessionStorage.removeItem(`bastion_term_${server!.id}`);
+        navigate("/");
     };
 
     if (isLoading) return <div className="p-4 md:p-6 text-foreground">Loading terminal...</div>;
@@ -261,7 +416,7 @@ export default function TerminalPage() {
                 onDisconnect={handleDisconnect}
             />
             }
-            <div className={`flex flex-col flex-1  overflow-hidden bg-zinc-950 min-h-0 ${isFullscreen ? "border-none rounded-none sm:pt-2 sm:pl-1" : "border border-border rounded-lg"}`}>
+            <div className={`flex flex-col flex-1  overflow-hidden bg-black min-h-0 ${isFullscreen ? "border-none rounded-none sm:pt-2 sm:pl-1" : "border border-border rounded-lg"}`}>
                 {!isFullscreen && <TerminalTabs activeTabName={server.name} />}
                 {/* Fullscreen Toggle Button */}
                 <Button
@@ -272,7 +427,57 @@ export default function TerminalPage() {
                 >
                     {isFullscreen ? <Minimize className="w-6 h-6" /> : <Maximize className="w-6 h-6" />}
                 </Button>
-                <TerminalViewport ref={terminalRef} />
+                <div
+                    className="relative flex-1 flex flex-col overflow-hidden"
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
+                    {isDragging && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm border-2 border-dashed border-border rounded-lg">
+                            <div className="flex flex-col items-center gap-4 text-primary pointer-events-none">
+                                <Upload className="w-16 h-16 animate-bounce" />
+                                <h3 className="text-xl font-bold text-foreground">Drop file to upload</h3>
+                                <p className="text-sm text-muted-foreground">File will be transferred to your remote home directory</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {uploadStatus.state !== "idle" && (
+                        <div className="absolute top-4 right-4 z-50 flex flex-col gap-2 bg-secondary border border-border px-4 py-3 rounded-md shadow-lg shadow-black/50 w-72">
+                            {uploadStatus.state === "uploading" && (
+                                <>
+                                    <div className="flex justify-between items-center text-sm font-medium text-indigo-400">
+                                        <span className="truncate pr-2">Uploading {uploadStatus.filename}</span>
+                                        <span className="shrink-0">{uploadStatus.percent}%</span>
+                                    </div>
+                                    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                                        <div
+                                            className="bg-indigo-500 h-1.5 transition-all duration-200"
+                                            style={{ width: `${uploadStatus.percent}%` }}
+                                        />
+                                    </div>
+                                </>
+                            )}
+                            {uploadStatus.state === "success" && (
+                                <div className="text-sm font-medium text-green-500 truncate line-clamp-2 flex">
+                                    {/* <CheckCheck /> */}
+                                    <p>
+                                        Successfully uploaded {uploadStatus.filename}
+                                    </p>
+                                </div>
+                            )}
+                            {uploadStatus.state === "error" && (
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-sm font-medium text-red-500 truncate">Failed to upload {uploadStatus.filename}</span>
+                                    <span className="text-xs text-red-500/70">{uploadStatus.message}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <TerminalViewport ref={terminalRef} />
+                </div>
 
                 <MobileTerminalToolbar
                     ctrlActive={mods.ctrl}
@@ -286,8 +491,8 @@ export default function TerminalPage() {
                         status={connectionStatus}
                         rows={termDimensions.rows}
                         cols={termDimensions.cols}
-                        latency={latency}
-                        uptime={uptime}
+                        isFullscreen={isFullscreen}
+                        wsRef={wsRef}
                     />
                 )}
             </div>

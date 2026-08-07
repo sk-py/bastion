@@ -18,11 +18,14 @@ export interface SshSession {
     lastActivity: number;
     state: SessionState;
     pendingOperations: Set<string>;
+    outputBuffer: Buffer[];
+    outputBufferSize: number;
 }
 
 export class SshSessionManager {
     private sessions = new Map<string, SshSession>();
     private sweeperInterval?: NodeJS.Timeout | undefined;
+    private readonly MAX_BUFFER_BYTES = 128 * 1024; // 128KB
 
     public start(): void {
         if (this.sweeperInterval) return;
@@ -50,6 +53,8 @@ export class SshSessionManager {
             lastActivity: Date.now(),
             state: "active",
             pendingOperations: new Set(),
+            outputBuffer: [],
+            outputBufferSize: 0,
         };
         
         // Trap underlying SSH connection drops
@@ -58,6 +63,25 @@ export class SshSessionManager {
 
         this.sessions.set(sessionId, session);
         return session;
+    }
+
+    public appendOutput(sessionId: string, chunk: Buffer): void {
+        const session = this.get(sessionId);
+        if (!session) return;
+        
+        session.outputBuffer.push(chunk);
+        session.outputBufferSize += chunk.length;
+        
+        while (session.outputBufferSize > this.MAX_BUFFER_BYTES && session.outputBuffer.length > 0) {
+            const removed = session.outputBuffer.shift()!;
+            session.outputBufferSize -= removed.length;
+        }
+    }
+
+    public getBufferedOutput(sessionId: string): Buffer {
+        const session = this.get(sessionId);
+        if (!session || session.outputBuffer.length === 0) return Buffer.alloc(0);
+        return Buffer.concat(session.outputBuffer);
     }
 
     public get(sessionId: string): SshSession | undefined {
@@ -110,7 +134,7 @@ export class SshSessionManager {
         }
     }
 
-    private terminate(sessionId: string): void {
+    public terminate(sessionId: string): void {
         const session = this.sessions.get(sessionId);
         if (!session) return;
 
