@@ -15,6 +15,7 @@ import {
   sshSessionManager,
   type SshSession,
 } from "src/core/ssh/ssh-session-manager.js";
+import { recordingService } from "./recording/recording-service.js";
 
 export class TerminalGateway {
   private readonly wss: WebSocketServer;
@@ -38,8 +39,7 @@ export class TerminalGateway {
     if (session.ws?.readyState === session.ws?.OPEN) {
       session.ws?.close(1000, "Session terminated");
     }
-    // RecordingService.finalize(session.sessionId) hooks in here once built —
-    // this is the one place that's guaranteed to fire for every termination path.
+    void recordingService.finalize(session.sessionId);
   };
 
   public handleUpgrade = async (
@@ -141,6 +141,7 @@ export class TerminalGateway {
 
         session = sshSessionManager.create(request.user.id, serverId, client);
         session.shell = stream;
+        void recordingService.startRecording(session, cols, rows);
       }
 
       session.ws = ws;
@@ -172,6 +173,7 @@ export class TerminalGateway {
       // Capture live chunks into the chunked array
       session.shell?.on("data", (chunk: Buffer) => {
         sshSessionManager.appendOutput(session!.sessionId, chunk);
+        recordingService.writeOutput(session!.sessionId, chunk);
         if (ws.readyState === ws.OPEN) {
           ws.send(chunk);
         }
@@ -220,6 +222,11 @@ export class TerminalGateway {
               payload.cols,
               payload.height || 0,
               payload.width || 0,
+            );
+            recordingService.writeResize(
+              session!.sessionId,
+              payload.cols,
+              payload.rows,
             );
           } else if (payload.type === "disconnect") {
             // User-initiated kill it now without a fall back to markClosing()/sweeper,
