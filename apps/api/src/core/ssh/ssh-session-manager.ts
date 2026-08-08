@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { Client, type ClientChannel } from "ssh2";
 import WebSocket from "ws";
 import crypto from "crypto";
@@ -22,7 +23,7 @@ export interface SshSession {
     outputBufferSize: number;
 }
 
-export class SshSessionManager {
+export class SshSessionManager extends EventEmitter {
     private sessions = new Map<string, SshSession>();
     private sweeperInterval?: NodeJS.Timeout | undefined;
     private readonly MAX_BUFFER_BYTES = 128 * 1024; // 128KB
@@ -41,7 +42,7 @@ export class SshSessionManager {
 
     public create(userId: string, serverId: string, client: Client): SshSession {
         const sessionId = crypto.randomUUID();
-        
+
         const session: SshSession = {
             sessionId,
             userId,
@@ -56,8 +57,14 @@ export class SshSessionManager {
             outputBuffer: [],
             outputBufferSize: 0,
         };
-        
-        // Trap underlying SSH connection drops
+
+        // Trap underlying SSH connection drops. Note: TerminalGateway registers its
+        // own client "close"/"error" handlers per-connection and clears these via
+        // removeAllListeners() before doing so (see gateway). That's intentional —
+        // gateway's terminate()-based handlers are a strict superset of markClosing,
+        // so nothing is lost, but it means these two listeners only ever really
+        // apply in the brief window between create() and the first handleConnection
+        // finishing setup. Not worth a bigger refactor to avoid that redundancy.
         client.on("close", () => this.markClosing(sessionId));
         client.on("error", () => this.markClosing(sessionId));
 
@@ -68,10 +75,10 @@ export class SshSessionManager {
     public appendOutput(sessionId: string, chunk: Buffer): void {
         const session = this.get(sessionId);
         if (!session) return;
-        
+
         session.outputBuffer.push(chunk);
         session.outputBufferSize += chunk.length;
-        
+
         while (session.outputBufferSize > this.MAX_BUFFER_BYTES && session.outputBuffer.length > 0) {
             const removed = session.outputBuffer.shift()!;
             session.outputBufferSize -= removed.length;
@@ -108,6 +115,26 @@ export class SshSessionManager {
         }
     }
 
+    /**
+     * Reattaches a WebSocket to an existing session after a disconnect (e.g. mobile
+     * lock/background/network handoff). Resets state back to "active" so the sweeper
+     * doesn't reap a session the user just reconnected to.
+     *
+     * CALLER MUST CHECK OWNERSHIP FIRST. This method does not verify that the
+     * caller's userId matches session.userId — sessionId is a bare UUID passable
+     * over a WS query param, so skipping that check is a session-hijack hole.
+     * See TerminalGateway.handleConnection for the required check via get().
+     */
+    public reattach(sessionId: string, ws: WebSocket): SshSession | undefined {
+        const session = this.get(sessionId);
+        if (!session) return undefined;
+
+        session.state = "active";
+        session.lastActivity = Date.now();
+        session.ws = ws;
+        return session;
+    }
+
     public beginOperation(sessionId: string): string {
         const session = this.get(sessionId);
         if (!session) {
@@ -134,6 +161,13 @@ export class SshSessionManager {
         }
     }
 
+    /**
+     * Idempotent by construction: the map delete below means a second call for the
+     * same sessionId hits `if (!session) return` and no-ops. That guarantees the
+     * "terminated" event fires exactly once per session, regardless of which path
+     * triggered it (shell close, client close/error, or sweeper timeout) — this is
+     * the one signal downstream consumers (gateway, recording finalize) should rely on.
+     */
     public terminate(sessionId: string): void {
         const session = this.sessions.get(sessionId);
         if (!session) return;
@@ -144,13 +178,14 @@ export class SshSessionManager {
             session.shell.removeAllListeners();
             session.shell.end();
         }
-        
+
         if (session.client) {
             session.client.removeAllListeners();
             session.client.end();
         }
 
         this.sessions.delete(sessionId);
+        this.emit("terminated", session);
     }
 
     private sweep(): void {

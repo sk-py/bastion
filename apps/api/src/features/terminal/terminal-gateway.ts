@@ -11,7 +11,10 @@ import type { TerminalRequest } from "./terminal-types.js";
 import UnAuthenticatedError from "src/core/errors/unauthenticated.js";
 import type { RawData } from "ws";
 import { recordServerConnection } from "../servers/server-service.js";
-import { sshSessionManager } from "src/core/ssh/ssh-session-manager.js";
+import {
+  sshSessionManager,
+  type SshSession,
+} from "src/core/ssh/ssh-session-manager.js";
 
 export class TerminalGateway {
   private readonly wss: WebSocketServer;
@@ -20,7 +23,24 @@ export class TerminalGateway {
     this.wss = new WebSocketServer({ noServer: true });
 
     this.wss.on("connection", this.handleConnection);
+
+    // Single, authoritative reaction to session death — fires exactly once per
+    // session regardless of which path killed it (remote shell closed, SSH client
+    // closed/errored, or the idle sweeper reaped it). Replaces the three inline
+    // ws.close()+terminate() blocks that used to be duplicated per-connection below,
+    // which is what let the sweeper path close a session without ever notifying
+    // the frontend (listeners were stripped by terminate() before the ws.close()
+    // that never got called).
+    sshSessionManager.on("terminated", this.handleSessionTerminated);
   }
+
+  private handleSessionTerminated = (session: SshSession) => {
+    if (session.ws?.readyState === session.ws?.OPEN) {
+      session.ws?.close(1000, "Session terminated");
+    }
+    // RecordingService.finalize(session.sessionId) hooks in here once built —
+    // this is the one place that's guaranteed to fire for every termination path.
+  };
 
   public handleUpgrade = async (
     request: IncomingMessage,
@@ -82,9 +102,24 @@ export class TerminalGateway {
 
     try {
       const existingSessionId = url.searchParams.get("sessionId");
-      let session = existingSessionId
-        ? sshSessionManager.get(existingSessionId)
-        : undefined;
+
+      let session: SshSession | undefined;
+
+      if (existingSessionId) {
+        // Ownership check BEFORE reattach — sessionId is a bare UUID over a query
+        // param, so anyone who obtains another user's sessionId could otherwise
+        // attach to their live shell. get() carries no owner check by itself.
+        const candidate = sshSessionManager.get(existingSessionId);
+        if (candidate && candidate.userId === request.user.id) {
+          session = sshSessionManager.reattach(existingSessionId, ws);
+        } else if (candidate) {
+          logger.warn({
+            event: "terminal.reattach_forbidden",
+            userId: request.user.id,
+            sessionId: existingSessionId,
+          });
+        }
+      }
 
       if (session && session.shell) {
         // Reattach to existing active connection
@@ -93,7 +128,9 @@ export class TerminalGateway {
           userId: request.user.id,
           serverId,
         });
-      } else {
+      }
+
+      if (!session) {
         // Establish a brand new connection
         const { stream, client } = await createTerminalSession(
           request.user.id,
@@ -118,41 +155,44 @@ export class TerminalGateway {
         ws.send(buffered);
       }
 
-      // Clean up any lingering data listeners from previous unmounted WebSockets
-      session.shell.removeAllListeners("data");
-      session.shell.removeAllListeners("close");
+      // Clean up any lingering listeners from previous unmounted WebSockets before
+      // re-registering below. This runs on every connection, new or reattached —
+      // on a brand-new session it's a harmless no-op for shell (nothing registered
+      // yet) and it does clear SshSessionManager's own create()-time markClosing
+      // listeners on client. That's an accepted tradeoff, not an oversight: the
+      // handlers re-registered right below call terminate(), which is a strict
+      // superset of what markClosing does, so nothing is functionally lost — but
+      // it's worth knowing this file owns client close/error handling from this
+      // point forward, not the manager.
+      session.shell?.removeAllListeners("data");
+      session.shell?.removeAllListeners("close");
+      session.client.removeAllListeners("close");
+      session.client.removeAllListeners("error");
 
       // Capture live chunks into the chunked array
-      session.shell.on("data", (chunk: Buffer) => {
+      session.shell?.on("data", (chunk: Buffer) => {
         sshSessionManager.appendOutput(session!.sessionId, chunk);
         if (ws.readyState === ws.OPEN) {
           ws.send(chunk);
         }
       });
 
-     session.shell.on("close", () => {
-        // Tell the frontend the connection died
-        if (ws.readyState === ws.OPEN) {
-          ws.close(1000, "Remote shell terminated");
-        }
-        
-        // Nuke the session from memory so it doesn't linger
-        // (Use whatever delete/remove method exists on your SshSessionManager)
-        if (session) {
-            sshSessionManager.terminate(session.sessionId); // Or .remove(), depending on your implementation
-        }
+      session.shell?.on("close", () => {
+        sshSessionManager.terminate(session!.sessionId);
       });
 
       // Also catch if the entire SSH client connection drops
       session.client.on("close", () => {
-        if (ws.readyState === ws.OPEN) ws.close(1000, "SSH connection dropped");
-        if (session) sshSessionManager.terminate(session.sessionId);
+        sshSessionManager.terminate(session!.sessionId);
       });
-      
+
       session.client.on("error", (err) => {
-        logger.error({ event: "ssh.client_error", error: err.message, serverId });
-        if (ws.readyState === ws.OPEN) ws.close(1011, "SSH connection error");
-        if (session) sshSessionManager.terminate(session.sessionId);
+        logger.error({
+          event: "ssh.client_error",
+          error: err.message,
+          serverId,
+        });
+        sshSessionManager.terminate(session!.sessionId);
       });
 
       // Force a redraw of the Linux prompt so the screen isn't blank on reattachment
@@ -181,6 +221,10 @@ export class TerminalGateway {
               payload.height || 0,
               payload.width || 0,
             );
+          } else if (payload.type === "disconnect") {
+            // User-initiated kill it now without a fall back to markClosing()/sweeper,
+            // that path exists for accidental drops we want to allow reattaching to.
+            sshSessionManager.terminate(session!.sessionId);
           }
         } catch (error) {
           // ignore

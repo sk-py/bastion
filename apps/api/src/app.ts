@@ -14,6 +14,7 @@ import cookieParser from "cookie-parser";
 import { env } from "./config.js";
 import { createServer } from "http";
 import { TerminalGateway } from "./features/terminal/terminal-gateway.js";
+import { sshSessionManager } from "./core/ssh/ssh-session-manager.js";
 dotenv.config();
 
 const PORT = env.PORT || 3002;
@@ -52,6 +53,8 @@ app.use(errorHandlerMiddleware);
 
 const bootstrap = async () => {
   await connectToDatabase();
+   sshSessionManager.start();
+
 
   httpServer.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

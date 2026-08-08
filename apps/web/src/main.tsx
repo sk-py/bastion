@@ -20,7 +20,7 @@ createRoot(document.getElementById('root')!).render(
         <Toaster richColors closeButton position='bottom-center' />
           <App />
       </ThemeProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
+      {/* <ReactQueryDevtools initialIsOpen={false} /> */}
     </QueryClientProvider>
   </StrictMode>,
 )

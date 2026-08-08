@@ -66,22 +66,22 @@ export default function TerminalPage() {
     const applyModifiers = (data: string): string => {
         const { ctrl, alt } = modsRef.current;
         if (!ctrl && !alt) return data;
+        if (data.length !== 1) return data; // never mangle pasted/multi-char blocks
 
         let payload = data;
 
-        if (ctrl && data.length === 1) {
+        if (ctrl) {
             const charCode = data.toLowerCase().charCodeAt(0);
             if (charCode >= 97 && charCode <= 122) {
                 payload = String.fromCharCode(charCode - 96);
             }
-        } else if (alt) {
-            payload = "\x1B" + data;
+        }
+        if (alt) {
+            payload = "\x1B" + payload;
         }
 
-        // Turn off toggles after consumption
         modsRef.current = { ctrl: false, alt: false };
         setMods({ ctrl: false, alt: false });
-
         return payload;
     };
 
@@ -96,6 +96,7 @@ export default function TerminalPage() {
     const terminalRef = useRef<HTMLDivElement>(null);
     const xtermInstance = useRef<Terminal | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
+    const redirectTimeoutRef = useRef<number | null>(null);
 
     // To handle cases where drops landing outside the dropzone navigates the tab to the raw file and kills the live session
     useEffect(() => {
@@ -141,6 +142,38 @@ export default function TerminalPage() {
 
         fitAddon.fit();
 
+        // xterm.js has no native touch-to-scroll support on mobile (xtermjs/xterm.js#5377, still open).
+        // .xterm-viewport is technically overflow:scroll but doesn't reliably respond to touch drags,
+        // so we translate touch deltas into term.scrollLines() calls ourselves.
+        const viewportEl = terminalRef.current.querySelector<HTMLElement>(".xterm-viewport");
+        let touchStartY = 0;
+        let accumulatedDelta = 0;
+
+        const onTouchStart = (e: TouchEvent) => {
+            touchStartY = e.touches[0].clientY;
+            accumulatedDelta = 0;
+        };
+
+        const onTouchMove = (e: TouchEvent) => {
+            const currentY = e.touches[0].clientY;
+            const deltaY = touchStartY - currentY; // finger moves up -> positive -> scroll down
+            touchStartY = currentY;
+            accumulatedDelta += deltaY;
+
+            const rowHeight = term.element ? term.element.clientHeight / term.rows : 20;
+            const lineDelta = Math.trunc(accumulatedDelta / rowHeight);
+
+            if (lineDelta !== 0) {
+                term.scrollLines(lineDelta);
+                accumulatedDelta -= lineDelta * rowHeight;
+            }
+
+            e.preventDefault(); // we're handling the gesture now — don't let the page do anything with it
+        };
+
+        viewportEl?.addEventListener("touchstart", onTouchStart, { passive: true });
+        viewportEl?.addEventListener("touchmove", onTouchMove, { passive: false });
+
         const resizeObserver = new ResizeObserver(() => {
             try {
                 const currentIsMobile = window.innerWidth < 768;
@@ -176,14 +209,11 @@ export default function TerminalPage() {
 
         term.onData((data) => {
             if (ws.readyState === WebSocket.OPEN) {
-                // Convert any OS-level line endings from pasted text into standard terminal carriage returns
-                // 1. Strip Bracketed Paste Mode escape sequences (\x1b[200~ and \x1b[201~)
                 let sanitizedData = data.replace(/\x1b\[200~/g, '').replace(/\x1b\[201~/g, '');
-
-                // 2. Sanitize OS-level line endings from pastes
                 sanitizedData = sanitizedData.replace(/\r\n/g, '\r').replace(/\n/g, '\r');
+                const payload = applyModifiers(sanitizedData);
                 const encoder = new TextEncoder();
-                ws.send(encoder.encode(sanitizedData));
+                ws.send(encoder.encode(payload));
             }
         });
 
@@ -221,34 +251,45 @@ export default function TerminalPage() {
 
         ws.onclose = (event) => {
             setConnectionStatus("disconnected");
-            sessionStorage.removeItem(`bastion_term_${server!.id}`);
+
+            // code 1000 is what your gateway sends for every real, final termination —
+            // explicit disconnect, remote shell exit, and SSH errors are all consolidated
+            // through sshSessionManager's "terminated" event, which closes with 1000.
+            // Anything else (1006 abnormal closure, 1001 going away, etc.) means the
+            // socket just dropped — network blip, phone lock, backgrounding — while the
+            // backend session is still alive and waiting to be reattached. Don't destroy
+            // the one piece of info (sessionId) needed to reattach to it.
+            const isFinalClose = event.code === 1000;
+
+            if (isFinalClose) {
+                sessionStorage.removeItem(`bastion_term_${server!.id}`);
+            }
 
             if (term) {
                 term.write(`\r\n\x1b[31m[System] Connection closed (Code: ${event.code}).\x1b[0m\r\n`);
-                term.write(`\x1b[33m[System] Redirecting to home in 3 seconds...\x1b[0m\r\n`);
+                term.write(
+                    isFinalClose
+                        ? `\x1b[33m[System] Redirecting to home in 3 seconds...\x1b[0m\r\n`
+                        : `\x1b[33m[System] Connection lost — attempting to reconnect...\x1b[0m\r\n`
+                );
                 term.options.cursorBlink = false;
             }
 
-            // Auto-redirect after 3 seconds
-            setTimeout(() => {
-                navigate("/");
-            }, 3000);
+            // Only force a redirect on a final close. A dropped connection should let
+            // the component re-render/reconnect on its own, not boot the user out.
+            if (isFinalClose) {
+                redirectTimeoutRef.current = window.setTimeout(() => {
+                    navigate("/");
+                }, 3000);
+            }
         };
 
         ws.onerror = () => {
             setConnectionStatus("disconnected");
-            sessionStorage.removeItem(`bastion_term_${server!.id}`);
 
             if (term) {
                 term.write("\r\n\x1b[31m[System] WebSocket connection error.\x1b[0m\r\n");
-                term.write(`\x1b[33m[System] Redirecting to home in 3 seconds...\x1b[0m\r\n`);
-                term.options.cursorBlink = false;
             }
-
-            // Auto-redirect after 3 seconds
-            setTimeout(() => {
-                navigate("/");
-            }, 3000);
         };
 
         ws.onmessage = async (event) => {
@@ -273,6 +314,11 @@ export default function TerminalPage() {
 
         return () => {
 
+            if (redirectTimeoutRef.current !== null) {
+                clearTimeout(redirectTimeoutRef.current);
+                redirectTimeoutRef.current = null;
+            }
+
             // 1. Nullify the listeners so they don't fire on intentional unmount/cleanup
             ws.onclose = null;
             ws.onerror = null;
@@ -284,6 +330,8 @@ export default function TerminalPage() {
             }
 
             resizeObserver.disconnect();
+            viewportEl?.removeEventListener("touchstart", onTouchStart);
+            viewportEl?.removeEventListener("touchmove", onTouchMove);
             ws.close();
             term.dispose();
             xtermInstance.current = null;
@@ -381,13 +429,14 @@ export default function TerminalPage() {
 
 
     const handleDisconnect = () => {
-        // Only try to close if it's actually open
+        // let the server close it after processing "disconnect". 
+        // Closing client-side first risks the message and the close racing each other
         if (wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.close();
+            wsRef.current.send(JSON.stringify({ type: "disconnect" }));
         }
 
-        // Always execute the cleanup and navigation
-        sessionStorage.removeItem(`bastion_term_${server!.id}`);
+        // Execute the cleanup and navigation
+        if (server) sessionStorage.removeItem(`bastion_term_${server.id}`);
         navigate("/");
     };
 
@@ -416,7 +465,7 @@ export default function TerminalPage() {
                 onDisconnect={handleDisconnect}
             />
             }
-            <div className={`flex flex-col flex-1  overflow-hidden bg-black min-h-0 ${isFullscreen ? "border-none rounded-none sm:pt-2 sm:pl-1" : "border border-border rounded-lg"}`}>
+            <div className={`flex flex-col flex-1  overflow-hidden bg-background min-h-0 ${isFullscreen ? "border-none rounded-none sm:pt-2 sm:pl-1" : "border border-border rounded-lg"}`}>
                 {!isFullscreen && <TerminalTabs activeTabName={server.name} />}
                 {/* Fullscreen Toggle Button */}
                 <Button

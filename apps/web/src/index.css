@@ -123,8 +123,14 @@
   }
   body {
     @apply bg-background text-foreground;
+    overscroll-behavior-y: contain;
   }
   html {
     @apply font-sans;
+    overscroll-behavior-y: contain;
   }
+}
+
+.xterm-viewport {
+  overscroll-behavior: contain;
 }
