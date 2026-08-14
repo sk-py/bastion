@@ -9,6 +9,7 @@ export interface TerminalSession {
 
 export interface TerminalRequest extends IncomingMessage {
   user: PublicUser;
+  authSessionId: string;
 }
 
 export interface TerminalOptions {

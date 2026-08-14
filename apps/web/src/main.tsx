@@ -17,7 +17,7 @@ createRoot(document.getElementById('root')!).render(
         defaultTheme="dark"
         enableSystem={false}
       >
-        <Toaster richColors closeButton position='bottom-center' />
+        <Toaster className='z-99999' richColors closeButton position='bottom-center' />
           <App />
       </ThemeProvider>
       {/* <ReactQueryDevtools initialIsOpen={false} /> */}

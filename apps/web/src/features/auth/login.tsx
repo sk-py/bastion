@@ -38,7 +38,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4 font-mono">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4">
       {/* Brand mark */}
       <div className="mb-10 flex flex-col items-center gap-3 text-center">
         <img src="/bastion-logo-cropped.png" className="size-16 object-contain" />

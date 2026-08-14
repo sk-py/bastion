@@ -4,8 +4,15 @@ import path from "node:path";
 import { Transform } from "node:stream";
 import { sshSessionManager } from "../../core/ssh/ssh-session-manager.js";
 import logger from "../../core/logger.js";
+import { recordingService } from "./recording/recording-service.js";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024 * 1024; // 20GB limit
+
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 // Pre-flight check: does this filename already exist on the remote?
 // Called by the frontend BEFORE the upload stream starts, so the common
@@ -16,7 +23,9 @@ export const checkFileExists = (req: Request, res: Response) => {
   const filename = req.query.filename as string;
 
   if (!sessionId || !filename) {
-    res.status(400).json({ error: "Missing x-session-id header or filename query param" });
+    res
+      .status(400)
+      .json({ error: "Missing x-session-id header or filename query param" });
     return;
   }
 
@@ -48,7 +57,7 @@ export const checkFileExists = (req: Request, res: Response) => {
       if (statErr) {
         // code 2 = SSH_FX_NO_SUCH_FILE — nothing there, upload is clear
         if (statErr.code === 2) {
-          sftp.end()
+          sftp.end();
           res.status(200).json({ exists: false });
           return;
         }
@@ -61,7 +70,7 @@ export const checkFileExists = (req: Request, res: Response) => {
         res.status(500).json({ error: "Could not check file status" });
         return;
       }
-      sftp.end()
+      sftp.end();
       res.status(200).json({ exists: true });
     });
   });
@@ -151,6 +160,11 @@ export const uploadFile = (req: Request, res: Response) => {
         return;
       }
 
+      recordingService.writeMarker(
+        sessionId,
+        `Upload started: ${safeFilename}`,
+      );
+
       const remotePath = `./${safeFilename}`;
       const writeStream = sftp.createWriteStream(remotePath, {
         flags: "wx", // still the real safety net against the TOCTOU race
@@ -183,11 +197,16 @@ export const uploadFile = (req: Request, res: Response) => {
           if (totalBytes > 0 && now - lastSent > 250) {
             lastSent = now;
             if (session.ws?.readyState === session.ws?.OPEN) {
-              session.ws?.send(JSON.stringify({
-                type: "upload-progress",
-                filename: safeFilename,
-                percent: Math.min(100, Math.round((bytesWritten / totalBytes) * 100)),
-              }));
+              session.ws?.send(
+                JSON.stringify({
+                  type: "upload-progress",
+                  filename: safeFilename,
+                  percent: Math.min(
+                    100,
+                    Math.round((bytesWritten / totalBytes) * 100),
+                  ),
+                }),
+              );
             }
           }
           callback(null, chunk);
@@ -196,7 +215,13 @@ export const uploadFile = (req: Request, res: Response) => {
 
       file.pipe(progressTracker).pipe(writeStream);
 
-      writeStream.on("finish", settle);
+      writeStream.on("finish", () => {
+        recordingService.writeMarker(
+          sessionId,
+          `Upload completed: ${safeFilename} (${formatBytes(bytesWritten)})`,
+        );
+        settle();
+      });
       writeStream.on("close", settle);
 
       writeStream.on("error", (writeErr: any) => {
@@ -214,13 +239,15 @@ export const uploadFile = (req: Request, res: Response) => {
             errMsg = "Target directory does not exist.";
             break;
           case 3:
-            errMsg = "Permission denied. You do not have write access to this directory.";
+            errMsg =
+              "Permission denied. You do not have write access to this directory.";
             break;
           case 4:
             // OpenSSH (SFTP v3) throws generic FAILURE for 'wx' collisions —
             // it has no dedicated file-exists code. Rare-race path now,
             // since checkFileExists handles the common case up front.
-            errMsg = "File transfer failed. A file with this name may already exist.";
+            errMsg =
+              "File transfer failed. A file with this name may already exist.";
             break;
           case 11:
             // SFTP v6+ dedicated code — effectively dead against OpenSSH,
@@ -229,12 +256,14 @@ export const uploadFile = (req: Request, res: Response) => {
             break;
           default:
             if (writeErr.message?.toLowerCase().includes("failure")) {
-              errMsg = "File transfer failed. A file with this name may already exist.";
+              errMsg =
+                "File transfer failed. A file with this name may already exist.";
             } else if (writeErr.message) {
               errMsg = `Transfer failed: ${writeErr.message}`;
             }
         }
 
+        recordingService.writeMarker(sessionId, `Upload failed: ${safeFilename}`);
         abortTransfer(500, errMsg);
       });
     });
@@ -245,7 +274,11 @@ export const uploadFile = (req: Request, res: Response) => {
     });
 
     bb.on("error", (bbErr) => {
-      logger.error({ event: "sftp.parse_error", error: (bbErr as Error).message, sessionId });
+      logger.error({
+        event: "sftp.parse_error",
+        error: (bbErr as Error).message,
+        sessionId,
+      });
       abortTransfer(500, "Stream parsing failed");
     });
 

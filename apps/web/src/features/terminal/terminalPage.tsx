@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { useServers } from "../dashboard/hooks/use-servers";
+import { useServers } from "../servers/hooks/use-servers";
 import { TerminalHeader } from "./components/terminal-header";
 import { TerminalTabs } from "./components/terminal-tabs";
 import { TerminalViewport } from "./components/terminal-viewport";

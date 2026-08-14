@@ -1,4 +1,4 @@
-import { Home, Server, Settings, Shield, Users } from "lucide-react";
+import { Home, Server, Settings, Shield, Timeline, Users } from "lucide-react";
 import type React from "react";
 
 export type subs = {
@@ -33,6 +33,11 @@ export const appRoutes: Route[] = [
         icon: <Server className="size-4" />,
         link: "/servers",
       },
+      {
+        title: "Sessions",
+        icon: <Timeline className="size-4" />,
+        link: "/sessions",
+      },
     ],
   },
   {
@@ -42,14 +47,14 @@ export const appRoutes: Route[] = [
     link: "#",
     subs: [
       {
-        title: "Users",
+        title: "Members",
         icon: <Users className="size-4" />,
-        link: "/users",
+        link: "/members",
       },
       {
-        title: "Roles",
+        title: "Groups",
         icon: <Shield className="size-4" />,
-        link: "/roles",
+        link: "/groups",
       },
     ],
   },

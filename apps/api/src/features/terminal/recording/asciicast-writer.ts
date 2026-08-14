@@ -15,7 +15,11 @@ export class AsciicastV2Writer {
     this.stream = fs.createWriteStream(filePath, { flags: "w" });
 
     this.stream.on("error", (err) => {
-      logger.error({ event: "recording.stream_error", error: err.message, filePath });
+      logger.error({
+        event: "recording.stream_error",
+        error: err.message,
+        filePath,
+      });
       this.broken = true; // stop writing; never throw into the caller, a recording failure must not affect the live terminal proxy
     });
 
@@ -41,7 +45,11 @@ export class AsciicastV2Writer {
     try {
       this.stream.write(line + "\n");
     } catch (err) {
-      logger.error({ event: "recording.write_failed", error: (err as Error).message, filePath: this.filePath });
+      logger.error({
+        event: "recording.write_failed",
+        error: (err as Error).message,
+        filePath: this.filePath,
+      });
       this.broken = true;
     }
   }
@@ -54,7 +62,14 @@ export class AsciicastV2Writer {
     this.safeWrite(JSON.stringify([this.elapsed(), "r", `${cols}x${rows}`]));
   }
 
-  async close(): Promise<{ durationSeconds: number; fileSizeBytes: number } | null> {
+  writeMarker(label: string) {
+    this.safeWrite(JSON.stringify([this.elapsed(), "m", label]));
+  }
+
+  async close(): Promise<{
+    durationSeconds: number;
+    fileSizeBytes: number;
+  } | null> {
     const durationSeconds = this.elapsed();
     return new Promise((resolve) => {
       this.stream.end(() => {

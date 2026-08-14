@@ -48,9 +48,10 @@ export class TerminalGateway {
     head: Buffer,
   ) => {
     try {
-      const user = await this.authenticate(request);
+      const { user, authSessionId } = await this.authenticate(request);
 
       (request as TerminalRequest).user = user;
+      (request as TerminalRequest).authSessionId = authSessionId;
 
       this.wss.handleUpgrade(request, socket, head, (ws) => {
         this.wss.emit("connection", ws, request);
@@ -68,15 +69,14 @@ export class TerminalGateway {
 
   private authenticate = async (request: IncomingMessage) => {
     const cookies = parseCookie(request.headers.cookie || "");
+    const sessionToken = cookies["session"];
 
-    const session = cookies["session"];
-
-    if (!session) {
+    if (!sessionToken) {
       throw new UnAuthenticatedError("Invalid session");
     }
 
-    const { user } = await authenticateUser(session);
-    return user;
+    const { user, session } = await authenticateUser(sessionToken);
+    return { user, authSessionId: session.id };
   };
 
   private handleConnection = async (
@@ -141,7 +141,11 @@ export class TerminalGateway {
 
         session = sshSessionManager.create(request.user.id, serverId, client);
         session.shell = stream;
-        void recordingService.startRecording(session, cols, rows);
+        void recordingService.startRecording(session, cols, rows, {
+          ipAddress: getClientIp(request),
+          userAgent: request.headers["user-agent"] ?? null,
+          authSessionId: request.authSessionId,
+        });
       }
 
       session.ws = ws;
@@ -262,3 +266,11 @@ export class TerminalGateway {
     }
   };
 }
+
+const getClientIp = (request: TerminalRequest): string => {
+  const forwarded = request.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.length > 0) {
+    return forwarded.split(",")[0]!.trim();
+  }
+  return request.socket.remoteAddress || "unknown";
+};

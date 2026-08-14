@@ -1,11 +1,15 @@
 import { createBrowserRouter, RouterProvider } from "react-router"
 import Protected from "./components/Layout/protected-route"
-import Dashboard from "./features/dashboard/dashboard"
 import LoginPage from "./features/auth/login"
 import { GuestRoute } from "./components/Layout/guest-route"
 import Layout from "./components/Layout/app-layout"
 import TerminalPage from "./features/terminal/terminalPage"
 import GlobalErrorPage from "./components/Layout/global-error-page"
+import { SessionsPage } from "./features/sessions/sessionsPage"
+import UsersPage from "./features/users/add-users-page"
+import GroupsPage from "./features/groups/groups-page"
+import ServersPage from "./features/servers/servers"
+import DashboardPage from "./features/dashboard/dashboard"
 
 function App() {
 
@@ -18,11 +22,27 @@ function App() {
           children: [
             {
               path: "/",
-              element: <Dashboard />
+              element: <DashboardPage />
             },
             {
               path: "/servers/:id/terminal",
               element: <TerminalPage />
+            },
+            {
+              path: "/sessions",
+              element: <SessionsPage />
+            },
+            {
+              path: "/servers",
+              element: <ServersPage />
+            },
+            {
+              path: "/members",
+              element: <UsersPage />
+            },
+            {
+              path: "/groups",
+              element: <GroupsPage />
             }
           ]
         }

@@ -15,6 +15,9 @@ import { env } from "./config.js";
 import { createServer } from "http";
 import { TerminalGateway } from "./features/terminal/terminal-gateway.js";
 import { sshSessionManager } from "./core/ssh/ssh-session-manager.js";
+import recordingRoutes from "./features/terminal/recording/recording-routes.js";
+import { recordingService } from "./features/terminal/recording/recording-service.js";
+
 dotenv.config();
 
 const PORT = env.PORT || 3002;
@@ -44,6 +47,7 @@ app.use(accessLogMiddleware);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/server", serverRoutes);
 app.use("/api/v1/terminal", terminalRoutes)
+app.use("/api/v1/sessions", recordingRoutes);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
@@ -53,8 +57,8 @@ app.use(errorHandlerMiddleware);
 
 const bootstrap = async () => {
   await connectToDatabase();
-   sshSessionManager.start();
-
+  await recordingService.sweepStuckRecordings();
+  sshSessionManager.start();
 
   httpServer.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
