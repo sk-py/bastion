@@ -187,3 +187,80 @@ export const listGroupMembers = async (
 
   return rows;
 };
+
+export interface GroupServer {
+  id: string;
+  name: string;
+  host: string;
+  operatingSystem: string | null;
+}
+
+export const addGroupServer = async (
+  groupId: string,
+  serverId: string,
+): Promise<void> => {
+  await pool.query(
+    `
+      INSERT INTO group_servers (group_id, server_id)
+      VALUES ($1, $2)
+      ON CONFLICT (group_id, server_id) DO NOTHING
+    `,
+    [groupId, serverId],
+  );
+};
+
+export const removeGroupServer = async (
+  groupId: string,
+  serverId: string,
+): Promise<boolean> => {
+  const { rowCount } = await pool.query(
+    `
+      DELETE FROM group_servers
+      WHERE group_id = $1
+        AND server_id = $2
+    `,
+    [groupId, serverId],
+  );
+
+  return (rowCount ?? 0) > 0;
+};
+
+export const findServerInWorkspace = async (
+  serverId: string,
+  workspaceId: string,
+): Promise<boolean> => {
+  const { rowCount } = await pool.query(
+    `
+      SELECT 1
+      FROM servers
+      WHERE id = $1
+        AND workspace_id = $2
+      LIMIT 1
+    `,
+    [serverId, workspaceId],
+  );
+
+  return (rowCount ?? 0) > 0;
+};
+
+export const listGroupServers = async (
+  groupId: string,
+): Promise<GroupServer[]> => {
+  const { rows } = await pool.query<GroupServer>(
+    `
+      SELECT
+        s.id,
+        s.name,
+        s.host,
+        s.operating_system AS "operatingSystem"
+      FROM group_servers gs
+      JOIN servers s
+        ON s.id = gs.server_id
+      WHERE gs.group_id = $1
+      ORDER BY s.name ASC
+    `,
+    [groupId],
+  );
+
+  return rows;
+};

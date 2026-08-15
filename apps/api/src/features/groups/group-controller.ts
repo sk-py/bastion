@@ -2,12 +2,15 @@ import type { Request, Response } from "express";
 import type { CreateGroupSchema, UpdateGroupSchema } from "@bastion/schemas";
 import {
   addMemberToGroup,
+  addServerToGroup,
   createGroup,
   deleteGroup,
   getGroup,
   getGroupMembers,
   getGroups,
+  getGroupServers,
   removeMemberFromGroup,
+  removeServerFromGroup,
   updateGroup,
 } from "./group-service.js";
 
@@ -100,5 +103,59 @@ export const listMembers = async (
   return res.status(200).json({
     status: "success",
     data: members,
+  });
+};
+
+export const addServer = async (req: Request, res: Response) => {
+  const { id } = req.params as { id: string };
+  const { serverId } = req.body as { serverId: string };
+
+  await addServerToGroup(
+    id,
+    serverId,
+    req.user.workspaceId,
+  );
+
+  return res.status(201).json({
+    status: "success",
+    message: "Server assigned to group successfully.",
+  });
+};
+
+export const listServers = async (
+  req: Request,
+  res: Response,
+) => {
+  const { id } = req.params as { id: string };
+
+  const servers = await getGroupServers(
+    id,
+    req.user.workspaceId,
+  );
+
+  return res.status(200).json({
+    status: "success",
+    data: servers,
+  });
+};
+
+export const removeServer = async (
+  req: Request,
+  res: Response,
+) => {
+  const { serverId, id: groupId } = req.params as {
+    serverId: string;
+    id: string;
+  };
+
+  await removeServerFromGroup(
+    groupId,
+    serverId,
+    req.user.workspaceId,
+  );
+
+  return res.status(200).json({
+    status: "success",
+    message: "Server removed from group successfully.",
   });
 };

@@ -7,12 +7,15 @@ import {
 } from "@bastion/schemas";
 import {
   addMember,
+  addServer,
   create,
   get,
   list,
   listMembers,
+  listServers,
   remove,
   removeMember,
+  removeServer,
   update,
 } from "./group-controller.js";
 import { requireAuth } from "src/middleware/authenticate.js";
@@ -63,5 +66,25 @@ router.get(
 );
 
 router.delete("/:id", requireAuth, requireRole("owner", "admin"), remove);
+
+router.get(
+  "/:id/servers",
+  requireAuth,
+  listServers,
+);
+
+router.post(
+  "/:id/servers",
+  requireAuth,
+  requireRole("owner", "admin"),
+  addServer,
+);
+
+router.delete(
+  "/:id/servers/:serverId",
+  requireAuth,
+  requireRole("owner", "admin"),
+  removeServer,
+);
 
 export default router;

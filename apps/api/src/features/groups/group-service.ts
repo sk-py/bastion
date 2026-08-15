@@ -1,13 +1,17 @@
 import type { CreateGroupSchema, UpdateGroupSchema } from "@bastion/schemas";
 import {
   addGroupMember,
+  addGroupServer,
   createGroup as createGroupRepository,
   deleteGroup as deleteGroupRepository,
   findGroupById,
+  findServerInWorkspace,
   findUserInWorkspace,
   listGroupMembers,
+  listGroupServers,
   listGroups as listGroupsRepository,
   removeGroupMember,
+  removeGroupServer,
   updateGroup as updateGroupRepository,
 } from "./group-repository.js";
 import BadRequestError from "src/core/errors/bad-request.js";
@@ -129,4 +133,62 @@ export const getGroupMembers = async (
   }
 
   return listGroupMembers(groupId);
+};
+
+export const addServerToGroup = async (
+  groupId: string,
+  serverId: string,
+  workspaceId: string,
+): Promise<void> => {
+  const group = await findGroupById(groupId, workspaceId);
+
+  if (!group) {
+    throw new NotFoundError("Group not found.");
+  }
+
+  const serverExists = await findServerInWorkspace(
+    serverId,
+    workspaceId,
+  );
+
+  if (!serverExists) {
+    throw new BadRequestError(
+      "Server does not belong to this workspace.",
+    );
+  }
+
+  await addGroupServer(groupId, serverId);
+};
+
+export const removeServerFromGroup = async (
+  groupId: string,
+  serverId: string,
+  workspaceId: string,
+): Promise<void> => {
+  const group = await findGroupById(groupId, workspaceId);
+
+  if (!group) {
+    throw new NotFoundError("Group not found.");
+  }
+
+  const removed = await removeGroupServer(groupId, serverId);
+
+  if (!removed) {
+    throw new NotFoundError(
+      "Server is not assigned to this group.",
+    );
+  }
+};
+
+export const getGroupServers = async (
+  groupId: string,
+  workspaceId: string,
+) => {
+  const group = await findGroupById(groupId, workspaceId);
+
+  if (!group) {
+    throw new NotFoundError("Group not found.");
+  }
+
+  return listGroupServers(groupId);
 };
