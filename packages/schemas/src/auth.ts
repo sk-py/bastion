@@ -1,10 +1,8 @@
 import * as z from "zod";
 
-const emailSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .pipe(z.email());
+const emailSchema = z.string().trim().toLowerCase().pipe(z.email());
+
+export const USER_ROLES = ["admin", "member"] as const;
 
 const passwordSchema = z
   .string()
@@ -21,10 +19,12 @@ const nameSchema = z
   .min(2, "Name must be at least 2 characters")
   .max(100, "Name is too long");
 
-export const registerSchema = z.object({
+export const addUserSchema = z.object({
   name: nameSchema,
   email: emailSchema,
   password: passwordSchema,
+  role: z.enum(USER_ROLES),
+  mustChangePassword: z.boolean().default(true),
 });
 
 export const loginSchema = z.object({
@@ -49,7 +49,13 @@ export const verifyEmailSchema = z.object({
   token: z.string(),
 });
 
-export type RegisterSchema = z.infer<typeof registerSchema>;
+export const initialSetupSchema = z.object({
+  name: nameSchema,
+  password: passwordSchema,
+});
+
+export type InitialSetupSchema = z.infer<typeof initialSetupSchema>;
+export type AddUserSchema = z.infer<typeof addUserSchema>;
 export type LoginSchema = z.infer<typeof loginSchema>;
 export type ForgotPasswordSchema = z.infer<typeof forgotPasswordSchema>;
 export type ResendVerificationSchema = z.infer<typeof resendVerificationSchema>;

@@ -1,17 +1,25 @@
 import type { Request, Response } from "express";
-import type { RegisterSchema } from "@bastion/schemas";
+import type { AddUserSchema } from "@bastion/schemas";
 import {
   loginUser,
-  logoutAllDevices, 
+  logoutAllDevices,
   logoutUser,
   registerUser,
+  completeInitialSetup as completeInitialSetupService,
 } from "./auth-service.js";
 import { env } from "../../../config.js";
 
 export const register = async (req: Request, res: Response) => {
-  const { name, email, password }: RegisterSchema = req.body;
-  req.log.info("Registering user", { name, email });
-  const user = await registerUser({ email, name, password });
+  const { name, email, password, role, mustChangePassword }: AddUserSchema =
+    req.body;
+  req.log.info("Registering user", { name, email, role, mustChangePassword });
+  const user = await registerUser({
+    email,
+    name,
+    password,
+    role,
+    mustChangePassword,
+  });
   return res.status(201).json({ status: "success", data: user });
 };
 
@@ -22,19 +30,12 @@ export const login = async (req: Request, res: Response) => {
     userAgent: req.get("User-Agent") ?? null,
   });
 
-  console.log({
-    sessionToken,
-    length: sessionToken.length,
-  });
-
   res.cookie("session", sessionToken, {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: env.AUTH_SESSION_TTL_MS,
   });
-
-  console.log(res.getHeaders());
 
   res.status(200).json({
     status: "success",
@@ -70,6 +71,19 @@ export const logoutAll = async (req: Request, res: Response) => {
   res.status(200).json({
     status: "success",
     message: "Logged out of all devices successfully.",
+  });
+};
+
+export const completeInitialSetup = async (req: Request, res: Response) => {
+  const user = await completeInitialSetupService({
+    userId: req.user.id,
+    name: req.body.name,
+    password: req.body.password,
+  });
+
+  return res.status(200).json({
+    status: "success",
+    data: user,
   });
 };
 

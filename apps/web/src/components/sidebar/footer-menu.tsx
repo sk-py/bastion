@@ -80,7 +80,7 @@ export function FooterMenu({ teams }: { teams: Team[] }) {
           >
             <DropdownMenuGroup>
               <DropdownMenuLabel className="text-muted-foreground text-xs">
-                Teams
+                Workspaces
               </DropdownMenuLabel>
               {teams.map((team, index) => (
                 <DropdownMenuItem
@@ -88,7 +88,7 @@ export function FooterMenu({ teams }: { teams: Team[] }) {
                   key={team.name}
                   onClick={() => setActiveTeam(team)}
                 >
-                  <div className="flex size-6 items-center justify-center rounded-sm border">
+                  <div className="flex size-6 items-center bg-card justify-center rounded-sm border">
                     <img src={team.logo} className="size-4 shrink-0" />
                   </div>
                   {team.name}
@@ -98,9 +98,9 @@ export function FooterMenu({ teams }: { teams: Team[] }) {
               <DropdownMenuSeparator />
               <DropdownMenuItem className="gap-2 p-2">
                 <div className="flex size-6 items-center justify-center rounded-md border bg-background">
-                  <Plus className="size-4" />
+                  <Plus className="size-4" color='#7D82FB'  />
                 </div>
-                <div className="font-medium text-muted-foreground">Add team</div>
+                <div className="font-medium text-muted-foreground">Add Workspace</div>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             
@@ -111,18 +111,18 @@ export function FooterMenu({ teams }: { teams: Team[] }) {
                 className="gap-2 p-2 cursor-pointer" 
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               >
-                <div className="flex size-6 items-center justify-center rounded-md border bg-background">
-                  {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+                <div className="flex size-6 items-center justify-center rounded-md border bg-background ">
+                  {theme === 'dark' ? <Sun className="size-4" color='#7D82FB' /> : <Moon className="size-4" color='#7D82FB' />}
                 </div>
                 <div className="font-medium">Toggle Theme</div>
               </DropdownMenuItem>
 
               <DropdownMenuItem 
-                className="gap-2 p-2 cursor-pointer text-red-500 hover:text-red-500 hover:bg-red-500/10 focus:text-red-500 focus:bg-red-500/10" 
+                className="gap-2 p-2 cursor-pointer text-red-500 focus:text-red-500" 
                 onClick={() => handleLogout()}
               >
                 <div className="flex size-6 items-center justify-center rounded-md border bg-background text-inherit">
-                  <LogOut className="size-4" />
+                  <LogOut className="size-3" color='red' />
                 </div>
                 <div className="font-medium">Log out</div>
               </DropdownMenuItem>

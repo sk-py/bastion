@@ -16,6 +16,7 @@ import {
   type SshSession,
 } from "src/core/ssh/ssh-session-manager.js";
 import { recordingService } from "./recording/recording-service.js";
+import ForbiddenError from "src/core/errors/forbidden.js";
 
 export class TerminalGateway {
   private readonly wss: WebSocketServer;
@@ -76,6 +77,11 @@ export class TerminalGateway {
     }
 
     const { user, session } = await authenticateUser(sessionToken);
+
+    if (user.mustChangePassword) {
+      throw new ForbiddenError("Initial account setup is required.");
+    }
+
     return { user, authSessionId: session.id };
   };
 

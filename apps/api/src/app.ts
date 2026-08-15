@@ -17,6 +17,7 @@ import { TerminalGateway } from "./features/terminal/terminal-gateway.js";
 import { sshSessionManager } from "./core/ssh/ssh-session-manager.js";
 import recordingRoutes from "./features/terminal/recording/recording-routes.js";
 import { recordingService } from "./features/terminal/recording/recording-service.js";
+import { initializeWorkspace } from "./core/bootstrap/workspace-setup.js";
 
 dotenv.config();
 
@@ -46,7 +47,7 @@ app.use(accessLogMiddleware);
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/server", serverRoutes);
-app.use("/api/v1/terminal", terminalRoutes)
+app.use("/api/v1/terminal", terminalRoutes);
 app.use("/api/v1/sessions", recordingRoutes);
 
 app.get("/health", (_req, res) => {
@@ -57,6 +58,7 @@ app.use(errorHandlerMiddleware);
 
 const bootstrap = async () => {
   await connectToDatabase();
+  await initializeWorkspace();
   await recordingService.sweepStuckRecordings();
   sshSessionManager.start();
 

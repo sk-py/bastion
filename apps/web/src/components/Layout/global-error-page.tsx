@@ -123,7 +123,7 @@ export default function GlobalErrorPage({
                     <p className="mt-0 mb-8 text-[15px] leading-relaxed text-muted-foreground">{config.description}</p>
                     <button
                         type="button"
-                        className="w-full px-6 py-3 rounded-full border border-primary bg-primary text-primary-foreground font-semibold cursor-pointer transition-all duration-300 hover:opacity-90 hover:-translate-y-0.5 shadow-md"
+                        className="w-full px-6 py-2 rounded-full border border-primary bg-primary text-primary-foreground font-semibold cursor-pointer transition-all duration-300 hover:opacity-90 hover:-translate-y-0.5 shadow-md"
                         onClick={handleAction}
                     >
                         {config.actionLabel}

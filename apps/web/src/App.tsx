@@ -10,6 +10,8 @@ import UsersPage from "./features/users/add-users-page"
 import GroupsPage from "./features/groups/groups-page"
 import ServersPage from "./features/servers/servers"
 import DashboardPage from "./features/dashboard/dashboard"
+import SetupRoute from "./components/Layout/setup-route"
+import SetupPage from "./features/auth/setup"
 
 function App() {
 
@@ -45,6 +47,15 @@ function App() {
               element: <GroupsPage />
             }
           ]
+        }
+      ]
+    },
+    {
+      element: <SetupRoute />,
+      children: [
+        {
+          path: "/setup",
+          element: <SetupPage />
         }
       ]
     },

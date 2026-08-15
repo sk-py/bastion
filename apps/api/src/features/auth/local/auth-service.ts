@@ -8,8 +8,9 @@ import {
   findSessionByTokenHash,
   findUserByEmail,
   findUserById,
+  completeInitialSetup as completeInitialSetupRepository,
 } from "./auth-repository.js";
-import type { LoginUserInput, User } from "./auth-types.js";
+import type { LoginUserInput, User, UserRole } from "./auth-types.js";
 import crypto from "crypto";
 import { env } from "../../../config.js";
 import UnAuthenticatedError from "../../../core/errors/unauthenticated.js";
@@ -17,21 +18,28 @@ interface RegisterUserInput {
   name: string;
   email: string;
   password: string;
+  role: UserRole;
+  mustChangePassword: boolean;
 }
 
 export const toPublicUser = (user: User) => ({
   id: user.id,
+  workspaceId: user.workspaceId,
   name: user.name,
   email: user.email,
-  is_active: user.is_active,
-  created_at: user.created_at,
-  updated_at: user.updated_at,
+  role: user.role,
+  mustChangePassword: user.mustChangePassword,
+  isActive: user.isActive,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
 });
 
 export const registerUser = async ({
   email,
   name,
   password,
+  role,
+  mustChangePassword,
 }: RegisterUserInput) => {
   const existingUser = await findUserByEmail(email);
 
@@ -43,7 +51,13 @@ export const registerUser = async ({
     type: argon2.argon2id,
   });
 
-  const createdUser = await createUser({ email, name, passwordHash });
+  const createdUser = await createUser({
+    email,
+    name,
+    passwordHash,
+    role,
+    mustChangePassword,
+  });
 
   return toPublicUser(createdUser);
 };
@@ -60,7 +74,7 @@ export const loginUser = async ({
     throw new UnAuthenticatedError("Invalid credentials");
   }
 
-  const valid = await argon2.verify(user.password_hash, password);
+  const valid = await argon2.verify(user.passwordHash, password);
 
   if (!valid) {
     throw new UnAuthenticatedError("Invalid credentials");
@@ -84,7 +98,7 @@ export const loginUser = async ({
     userAgent,
   });
 
-  const { password_hash, ...publicUser } = user;
+  const { passwordHash, ...publicUser } = user;
 
   return {
     user: publicUser,
@@ -114,11 +128,11 @@ export const authenticateUser = async (sessionToken: string) => {
     throw new UnAuthenticatedError("Unauthorized");
   }
 
-  if (!user.is_active) {
+  if (!user.isActive) {
     throw new UnAuthenticatedError("Acocunt is disabled");
   }
 
-  const { password_hash, ...publicUser } = user;
+  const { passwordHash, ...publicUser } = user;
 
   return { user: publicUser, session };
 };
@@ -134,6 +148,31 @@ export const logoutUser = async (sessionToken: string): Promise<void> => {
 
 export const logoutAllDevices = async (userId: string): Promise<void> => {
   await deleteSessionsByUserId(userId);
+};
+
+export const completeInitialSetup = async ({
+  userId,
+  name,
+  password,
+}: {
+  userId: string;
+  name: string;
+  password: string;
+}) => {
+  const passwordHash = await argon2.hash(password, {
+    type: argon2.argon2id,
+  });
+
+  const user = await completeInitialSetupRepository(userId, {
+    name,
+    passwordHash,
+  });
+
+  if (!user) {
+    throw new BadRequestError("Initial setup is not available");
+  }
+
+  return toPublicUser(user);
 };
 
 export type PublicUser = ReturnType<typeof toPublicUser>;

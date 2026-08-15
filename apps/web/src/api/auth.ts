@@ -1,13 +1,21 @@
-import type { LoginSchema } from "@bastion/schemas";
+import type { InitialSetupSchema, LoginSchema } from "@bastion/schemas";
 import { api } from "./axios";
+
+export const completeInitialSetup = async (input: InitialSetupSchema) => {
+  const { data } = await api.patch<MeResponse>("/auth/setup", input);
+  return data.data;
+};
 
 export interface CurrentUser {
   id: string;
+  workspaceId: string;
   name: string;
   email: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  role: "owner" | "admin" | "member";
+  mustChangePassword: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MeResponse {
@@ -27,10 +35,11 @@ export const getCurrentUser = async () => {
 };
 
 export const login = async (input: LoginSchema) => {
-  const data = await api.post<Promise<MeResponse>>("/auth/login", input);
+  const { data } = await api.post<MeResponse>("/auth/login", input);
+
   return data.data;
 };
 
 export const logout = async () => {
-  await api.get<Promise<LogoutResponse>>("/auth/logout");
+  await api.get<LogoutResponse>("/auth/logout");
 };

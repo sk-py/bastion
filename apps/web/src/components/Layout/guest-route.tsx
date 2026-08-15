@@ -9,6 +9,10 @@ export function GuestRoute() {
         return <BastionLoader />;
     }
 
+    if (user?.mustChangePassword) {
+        return <Navigate to="/setup" replace />;
+    }
+
     if (user) {
         return <Navigate to="/" replace />;
     }

@@ -22,6 +22,8 @@ const Protected = () => {
         </motion.div>
       ) : !user ? (
         <Navigate to="/login" replace />
+      ) : user.mustChangePassword ? (
+        <Navigate to="/setup" replace />
       ) : (
         <motion.div
           key="content"

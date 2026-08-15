@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import UnAuthenticatedError from "../core/errors/unauthenticated.js";
 import { authenticateUser } from "../features/auth/local/auth-service.js";
+import ForbiddenError from "src/core/errors/forbidden.js";
 
 export const requireAuth = async (
   req: Request,
@@ -13,6 +14,10 @@ export const requireAuth = async (
     if (!sessionToken) throw new UnAuthenticatedError("Unauthorized");
 
     const { user } = await authenticateUser(sessionToken);
+
+    if (user.must_change_password) {
+      return next(new ForbiddenError("Initial account setup is required."));
+    }
 
     req.user = user;
 

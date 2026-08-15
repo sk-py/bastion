@@ -21,11 +21,6 @@ const nameSchema = z
   .min(2, "Name must be at least 2 characters")
   .max(100, "Name is too long");
 
-export const registerSchema = z.object({
-  name: nameSchema,
-  email: emailSchema,
-  password: passwordSchema,
-});
 
 export const loginSchema = z.object({
   email: emailSchema,
@@ -49,7 +44,12 @@ export const verifyEmailSchema = z.object({
   token: z.string(),
 });
 
-export type RegisterSchema = z.infer<typeof registerSchema>;
+export const initialSetupSchema = z.object({
+  name: nameSchema,
+  password: passwordSchema,
+});
+
+export type InitialSetupSchema = z.infer<typeof initialSetupSchema>;
 export type LoginSchema = z.infer<typeof loginSchema>;
 export type ForgotPasswordSchema = z.infer<typeof forgotPasswordSchema>;
 export type ResendVerificationSchema = z.infer<typeof resendVerificationSchema>;

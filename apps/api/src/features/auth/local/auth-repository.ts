@@ -6,9 +6,21 @@ import type {
   Session,
 } from "./auth-types.js";
 
+const SELECT_USER = `SELECT id,
+        workspace_id AS "workspaceId",
+        name,
+        email,
+        password_hash AS "passwordHash",
+        role,
+        must_change_password AS "mustChangePassword",
+        is_active AS "isActive",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+        `;
+
 export const findUserByEmail = async (email: string): Promise<User | null> => {
   const { rows } = await pool.query<User>(
-    "SELECT * FROM users WHERE email = $1 LIMIT 1",
+    `${SELECT_USER} FROM users WHERE email = $1 LIMIT 1`,
     [email],
   );
   return rows[0] ?? null;
@@ -16,9 +28,13 @@ export const findUserByEmail = async (email: string): Promise<User | null> => {
 
 export const findUserById = async (id: string): Promise<User | null> => {
   const { rows } = await pool.query<User>(
-    "SELECT * FROM users WHERE id = $1 LIMIT 1",
+    `${SELECT_USER} FROM users
+      WHERE id = $1
+      LIMIT 1
+    `,
     [id],
   );
+
   return rows[0] ?? null;
 };
 
@@ -26,10 +42,12 @@ export const createUser = async ({
   email,
   name,
   passwordHash,
+  role,
+  mustChangePassword,
 }: CreateUserInput): Promise<User> => {
   const { rows } = await pool.query(
-    `INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING *`,
-    [name, email, passwordHash],
+    `INSERT INTO users (name, email, password_hash, role, must_change_password) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [name, email, passwordHash, role, mustChangePassword],
   );
   return rows[0];
 };
@@ -73,17 +91,46 @@ export const findSessionByTokenHash = async (
 export const deleteSessionByTokenHash = async (
   sessionTokenHash: string,
 ): Promise<void> => {
-  await pool.query(
-    "DELETE FROM auth_sessions WHERE session_token_hash = $1",
-    [sessionTokenHash],
-  );
+  await pool.query("DELETE FROM auth_sessions WHERE session_token_hash = $1", [
+    sessionTokenHash,
+  ]);
 };
 
-export const deleteSessionsByUserId = async (
+export const deleteSessionsByUserId = async (userId: string): Promise<void> => {
+  await pool.query("DELETE FROM auth_sessions WHERE user_id = $1", [userId]);
+};
+
+export const completeInitialSetup = async (
   userId: string,
-): Promise<void> => {
-  await pool.query(
-    "DELETE FROM auth_sessions WHERE user_id = $1",
-    [userId],
+  data: {
+    name: string;
+    passwordHash: string;
+  },
+): Promise<User | null> => {
+  const { rows } = await pool.query<User>(
+    `
+      UPDATE users
+      SET
+        name = $1,
+        password_hash = $2,
+        must_change_password = false,
+        updated_at = NOW()
+      WHERE id = $3
+        AND must_change_password = true
+     RETURNING
+        id,
+        workspace_id AS "workspaceId",
+        name,
+        email,
+        password_hash AS "passwordHash",
+        role,
+        must_change_password AS "mustChangePassword",
+        is_active AS "isActive",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+    `,
+    [data.name, data.passwordHash, userId],
   );
+
+  return rows[0] ?? null;
 };

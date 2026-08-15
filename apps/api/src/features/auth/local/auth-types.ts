@@ -1,17 +1,24 @@
+export type UserRole = "owner" | "admin" | "member";
+
 export interface User {
   id: string;
+  workspaceId: string;
   name: string;
   email: string;
-  password_hash: string;
-  is_active: boolean;
-  created_at: Date;
-  updated_at: Date;
+  passwordHash: string;
+  role: UserRole;
+  mustChangePassword: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface CreateUserInput {
   name: string;
   email: string;
   passwordHash: string;
+  mustChangePassword?: boolean;
+  role: UserRole;
 }
 export interface LoginUserInput {
   email: string;
