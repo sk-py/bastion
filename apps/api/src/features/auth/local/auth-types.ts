@@ -19,6 +19,7 @@ export interface CreateUserInput {
   passwordHash: string;
   mustChangePassword?: boolean;
   role: UserRole;
+  workspaceId: string;
 }
 export interface LoginUserInput {
   email: string;

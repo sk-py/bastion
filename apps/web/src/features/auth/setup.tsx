@@ -69,7 +69,7 @@ export default function SetupPage() {
         />
 
         <div>
-          <h2 className="mt-1 text-lg font-semibold text-primary-foreground">
+          <h2 className="mt-1 text-lg font-semibold text-foreground">
             Welcome to Bastion
           </h2>
         </div>
@@ -177,7 +177,7 @@ export default function SetupPage() {
             type="submit"
             disabled={loading}
             className={cn(
-              "flex w-full items-center justify-center gap-2 rounded-full py-2.5",
+              "flex w-full items-center justify-center gap-2 rounded-full py-4",
               "bg-primary text-primary-foreground font-medium transition-opacity",
               "hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60",
             )}
@@ -188,10 +188,12 @@ export default function SetupPage() {
                 Saving...
               </>
             ) : (
-              <>
-                Complete Setup
+              <span className="flex gap-2 items-center justify-center">
+                <p>
+                  Complete Setup
+                </p>
                 <ArrowRight className="h-4 w-4" />
-              </>
+              </span>
             )}
           </Button>
         </form>

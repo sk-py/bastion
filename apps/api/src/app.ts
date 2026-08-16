@@ -19,6 +19,7 @@ import recordingRoutes from "./features/terminal/recording/recording-routes.js";
 import { recordingService } from "./features/terminal/recording/recording-service.js";
 import { initializeWorkspace } from "./core/bootstrap/workspace-setup.js";
 import grouproutes from "./features/groups/group-routes.js";
+import workspaceRoutes from "./features/workspaces/workspace-routes.js";
 
 dotenv.config();
 
@@ -51,6 +52,7 @@ app.use("/api/v1/server", serverRoutes);
 app.use("/api/v1/terminal", terminalRoutes);
 app.use("/api/v1/sessions", recordingRoutes);
 app.use("/api/v1/groups", grouproutes);
+app.use("/api/v1/workspace", workspaceRoutes);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });

@@ -142,6 +142,8 @@ export class TerminalGateway {
           request.user.id,
           serverId,
           { cols, rows },
+          request.user.workspaceId,
+          request.user.role,
         );
         await recordServerConnection(serverId, request.user.id);
 

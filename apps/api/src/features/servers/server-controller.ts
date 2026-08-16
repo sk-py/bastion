@@ -7,6 +7,7 @@ import {
   testServerConnection as testServerConnectionService,
 } from "./server-service.js";
 import type { ServerIdSchema } from "@bastion/schemas";
+import type { User } from "../auth/local/auth-types.js";
 
 export const addNewServer = async (req: Request, res: Response) => {
   const createdServer = await addServer(req.body, req.user.id);
@@ -18,8 +19,8 @@ export const addNewServer = async (req: Request, res: Response) => {
 };
 
 export const getAllServers = async (req: Request, res: Response) => {
-  const id = req.user.id;
-  const servers = await getAllServerService(id);
+  const { id, workspaceId, role } = req.user as User;
+  const servers = await getAllServerService(id, workspaceId, role);
 
   res.status(200).json({
     status: "success",
@@ -28,10 +29,16 @@ export const getAllServers = async (req: Request, res: Response) => {
 };
 
 export const updateServer = async (req: Request, res: Response) => {
-  const userId = req.user.id;
+  const { id: userId, workspaceId, role } = req.user as User;
   const { id } = req.params as ServerIdSchema;
 
-  const server = await updateServerService(req.body, id, userId);
+  const server = await updateServerService(
+    req.body,
+    id,
+    userId,
+    workspaceId,
+    role,
+  );
 
   return res.status(200).json({
     status: "success",
@@ -52,10 +59,10 @@ export const removeServerById = async (req: Request, res: Response) => {
 };
 
 export const testServerConnection = async (req: Request, res: Response) => {
-  const userId = req.user.id;
+  const { id: userId, workspaceId, role } = req.user as User;
   const { id } = req.params as ServerIdSchema;
 
-  await testServerConnectionService(id, userId);
+  await testServerConnectionService(id, userId, workspaceId, role);
 
   res.status(200).json({
     status: "success",

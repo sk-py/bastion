@@ -5,13 +5,16 @@ import NotFoundError from "src/core/errors/not-found.js";
 import { decrypt } from "src/core/utils/encryption.js";
 import { connect } from "src/core/ssh/ssh-service.js";
 import type { TerminalOptions, TerminalSession } from "./terminal-types.js";
+import { getAccessibleServer } from "../servers/server-service.js";
 
 export const createTerminalSession = async (
   userId: string,
   serverId: string,
   options: TerminalOptions,
+  workspaceId: string,
+  role: "owner" | "admin" | "member",
 ): Promise<TerminalSession> => {
-  const server = await fetchServerById(serverId, userId);
+  const server = await getAccessibleServer(userId, workspaceId, role, serverId);
 
   if (!server) {
     throw new NotFoundError("Server not foumd.");

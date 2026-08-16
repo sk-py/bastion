@@ -13,12 +13,14 @@ import {
   serverIdSchema,
   updateServerSchema,
 } from "./server-schema.js";
+import { requireRole } from "src/middleware/authorize-role.js";
 
 const router: Router = Router();
 
 router.post(
   "/add",
   requireAuth,
+  requireRole("owner", "admin"),
   validate(createServerSchema, "body"),
   addNewServer,
 );
@@ -26,6 +28,7 @@ router.post(
 router.delete(
   "/:id",
   requireAuth,
+  requireRole("owner", "admin"),
   validate(serverIdSchema, "params"),
   removeServerById,
 );
@@ -35,6 +38,7 @@ router.get("/all", requireAuth, getAllServers);
 router.patch(
   "/update/:id",
   requireAuth,
+  requireRole("owner", "admin"),
   validate(serverIdSchema, "params"),
   validate(updateServerSchema, "body"),
   updateServer,

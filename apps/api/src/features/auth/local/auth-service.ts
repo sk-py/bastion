@@ -20,6 +20,7 @@ interface RegisterUserInput {
   password: string;
   role: UserRole;
   mustChangePassword: boolean;
+  workspaceId: string;
 }
 
 export const toPublicUser = (user: User) => ({
@@ -40,6 +41,7 @@ export const registerUser = async ({
   password,
   role,
   mustChangePassword,
+  workspaceId,
 }: RegisterUserInput) => {
   const existingUser = await findUserByEmail(email);
 
@@ -57,6 +59,7 @@ export const registerUser = async ({
     passwordHash,
     role,
     mustChangePassword,
+    workspaceId,
   });
 
   return toPublicUser(createdUser);

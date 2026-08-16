@@ -5,6 +5,8 @@ import { decrypt, encrypt } from "../../core/utils/encryption.js";
 import {
   createNewServer,
   deleteServer,
+  fetchAccessibleServerById,
+  fetchAccessibleServers,
   fetchAllServers,
   fetchServerById,
   updateDiscovery,
@@ -18,6 +20,7 @@ import {
 } from "@bastion/schemas";
 import type { Server, UpdateServerData } from "./server-types.js";
 import logger from "src/core/logger.js";
+import type { UserRole } from "../auth/local/auth-types.js";
 
 export const addServer = async (
   data: CreateServerSchema,
@@ -57,17 +60,36 @@ export const addServer = async (
   return createdServer;
 };
 
-export const getAllServers = async (userId: string): Promise<Server[]> => {
-  const servers = await fetchAllServers(userId);
-  return servers;
+export const getAllServers = async (
+  userId: string,
+  workspaceId: string,
+  role: "owner" | "admin" | "member",
+): Promise<Server[]> => {
+  return getAccessibleServers(userId, workspaceId, role);
+};
+
+export const getServerById = async (
+  serverId: string,
+  userId: string,
+  workspaceId: string,
+  role: "owner" | "admin" | "member",
+) => {
+  return getAccessibleServer(userId, workspaceId, role, serverId);
 };
 
 export const updateServerService = async (
   data: UpdateServerSchema,
   serverId: string,
   userId: string,
+  workspaceId: string,
+  role: UserRole,
 ) => {
-  const existingServer = await fetchServerById(serverId, userId);
+  const existingServer = await getServerById(
+    serverId,
+    userId,
+    workspaceId,
+    role,
+  );
 
   if (!existingServer) {
     throw new NotFoundError("Server not found");
@@ -136,8 +158,10 @@ export const deleteServerById = async ({
 export const testServerConnection = async (
   serverId: string,
   userId: string,
+  workspaceId: string,
+  role: UserRole,
 ) => {
-  const server = await fetchServerById(serverId, userId);
+  const server = await getServerById(serverId, userId, workspaceId, role);
 
   interface DecryptedData {
     decryptedPassword?: string;
@@ -173,7 +197,6 @@ export const testServerConnection = async (
   await testConnection(sshConfig);
 };
 
-
 export const recordServerConnection = async (
   serverId: string,
   userId: string,
@@ -181,6 +204,38 @@ export const recordServerConnection = async (
   try {
     await updateLastConnectedAt(serverId, userId);
   } catch (error) {
-    logger.error("Failed to update lastConnectedAt", { serverId, userId, error });
+    logger.error("Failed to update lastConnectedAt", {
+      serverId,
+      userId,
+      error,
+    });
   }
+};
+
+export const getAccessibleServer = async (
+  userId: string,
+  workspaceId: string,
+  role: "owner" | "admin" | "member",
+  serverId: string,
+) => {
+  const server = await fetchAccessibleServerById(
+    serverId,
+    userId,
+    workspaceId,
+    role,
+  );
+
+  if (!server) {
+    throw new NotFoundError("Server not found");
+  }
+
+  return server;
+};
+
+export const getAccessibleServers = async (
+  userId: string,
+  workspaceId: string,
+  role: "owner" | "admin" | "member",
+) => {
+  return fetchAccessibleServers(userId, workspaceId, role);
 };

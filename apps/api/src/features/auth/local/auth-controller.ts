@@ -7,9 +7,9 @@ import {
   registerUser,
   completeInitialSetup as completeInitialSetupService,
 } from "./auth-service.js";
-import { env } from "../../../config.js";
+import { env } from "src/config.js";
 
-export const register = async (req: Request, res: Response) => {
+export const addUser = async (req: Request, res: Response) => {
   const { name, email, password, role, mustChangePassword }: AddUserSchema =
     req.body;
   req.log.info("Registering user", { name, email, role, mustChangePassword });
@@ -19,6 +19,7 @@ export const register = async (req: Request, res: Response) => {
     password,
     role,
     mustChangePassword,
+    workspaceId: req.user.workspaceId,
   });
   return res.status(201).json({ status: "success", data: user });
 };

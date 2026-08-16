@@ -204,3 +204,66 @@ export const updateLastConnectedAt = async (
     [serverId, userId],
   );
 };
+
+export const fetchAccessibleServerById = async (
+  serverId: string,
+  userId: string,
+  workspaceId: string,
+  role: "owner" | "admin" | "member",
+): Promise<Server | null> => {
+  const { rows } = await pool.query<Server>(
+    `
+      SELECT ${SERVER_SELECT},
+        s.encrypted_password AS "encryptedPassword",
+        s.encrypted_private_key AS "encryptedPrivateKey",
+        s.encrypted_passphrase AS "encryptedPassphrase"
+      FROM servers s
+      WHERE s.id = $1
+        AND s.workspace_id = $2
+        AND (
+          $3 IN ('owner', 'admin')
+          OR EXISTS (
+            SELECT 1
+            FROM group_users gu
+            JOIN group_servers gs
+              ON gs.group_id = gu.group_id
+            WHERE gu.user_id = $4
+              AND gs.server_id = s.id
+          )
+        )
+      LIMIT 1
+    `,
+    [serverId, workspaceId, role, userId],
+  );
+
+  return rows[0] ?? null;
+};
+
+export const fetchAccessibleServers = async (
+  userId: string,
+  workspaceId: string,
+  role: "owner" | "admin" | "member",
+): Promise<Server[]> => {
+  const { rows } = await pool.query<Server>(
+    `
+      SELECT DISTINCT ${SERVER_SELECT}
+      FROM servers s
+      WHERE s.workspace_id = $1
+        AND (
+          $2 IN ('owner', 'admin')
+          OR EXISTS (
+            SELECT 1
+            FROM group_users gu
+            JOIN group_servers gs
+              ON gs.group_id = gu.group_id
+            WHERE gu.user_id = $3
+              AND gs.server_id = s.id
+          )
+        )
+      ORDER BY s.created_at DESC
+    `,
+    [workspaceId, role, userId],
+  );
+
+  return rows;
+};

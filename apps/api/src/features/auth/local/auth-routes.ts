@@ -5,13 +5,14 @@ import {
   logout,
   logoutAll,
   me,
-  register as registerUser,
+  addUser,
 } from "./auth-controller.js";
 import { validate } from "../../../middleware/validator.js";
 import { loginSchema, addUserSchema } from "@bastion/schemas";
 import { requireAuth } from "../../../middleware/authenticate.js";
 import { requireSetupAuth } from "src/middleware/setup-auth.js";
 import { initialSetupSchema } from "./auth-schema.js";
+import { requireRole } from "src/middleware/authorize-role.js";
 
 const router: Router = Router();
 
@@ -21,7 +22,13 @@ router.patch(
   validate(initialSetupSchema, "body"),
   completeInitialSetup,
 );
-router.post("/add-user", validate(addUserSchema, "body"), registerUser);
+router.post(
+  "/add-user",
+  requireAuth,
+  requireRole("admin", "owner"),
+  validate(addUserSchema, "body"),
+  addUser,
+);
 router.post("/login", validate(loginSchema, "body"), login);
 router.get("/logout", requireAuth, logout);
 router.get("/logout-all", requireAuth, logoutAll);

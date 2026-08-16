@@ -112,7 +112,7 @@ export default function LoginPage() {
             <form
               onSubmit={handleSubmit(onSubmit)}
               noValidate
-              className="space-y-5"
+              className=""
             >
               {/* Email */}
               <div className="space-y-2">
@@ -152,10 +152,10 @@ export default function LoginPage() {
               </div>
 
               {/* Password */}
-              <div className="space-y-2">
+              <div className="space-y-2 mt-4">
                 <label
                   htmlFor="password"
-                  className="flex ml-1 items-center gap-2 text-sm font-medium text-muted-foreground"
+                  className="flex ml-1 mt-4 items-center gap-2 text-sm font-medium text-muted-foreground"
                 >
                   <KeyRound
                     className="h-4 w-4"
@@ -200,7 +200,7 @@ export default function LoginPage() {
                 type="submit"
                 disabled={loading}
                 className={cn(
-                  "flex w-full items-center justify-center gap-2 rounded-full py-4",
+                  "flex w-full items-center justify-center gap-2 rounded-full mt-6 py-4",
                   "bg-primary text-primary-foreground font-semibold shadow-md",
                   "transition-all duration-300",
                   "hover:-translate-y-0.5 hover:opacity-90",

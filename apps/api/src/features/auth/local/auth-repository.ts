@@ -44,10 +44,11 @@ export const createUser = async ({
   passwordHash,
   role,
   mustChangePassword,
+  workspaceId,
 }: CreateUserInput): Promise<User> => {
   const { rows } = await pool.query(
-    `INSERT INTO users (name, email, password_hash, role, must_change_password) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [name, email, passwordHash, role, mustChangePassword],
+    `INSERT INTO users (name, email, password_hash, role, must_change_password, workspace_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [name, email, passwordHash, role, mustChangePassword, workspaceId],
   );
   return rows[0];
 };
