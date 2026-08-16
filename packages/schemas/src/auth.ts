@@ -54,6 +54,17 @@ export const initialSetupSchema = z.object({
   password: passwordSchema,
 });
 
+export const updateUserSchema = z.object({
+  name: nameSchema,
+  role: z.enum(["admin", "member"]),
+  mustChangePassword: z.boolean().default(false),
+  email: emailSchema,
+});
+
+export const updateUserStatusSchema = z.object({
+  isActive: z.boolean(),
+});
+
 export type InitialSetupSchema = z.infer<typeof initialSetupSchema>;
 export type AddUserSchema = z.infer<typeof addUserSchema>;
 export type LoginSchema = z.infer<typeof loginSchema>;
@@ -61,3 +72,5 @@ export type ForgotPasswordSchema = z.infer<typeof forgotPasswordSchema>;
 export type ResendVerificationSchema = z.infer<typeof resendVerificationSchema>;
 export type ResetPasswordSchema = z.infer<typeof resetPasswordSchema>;
 export type VerifyEmailSchema = z.infer<typeof verifyEmailSchema>;
+export type UpdateUserSchema = z.infer<typeof updateUserSchema>;
+export type UpdateUserStatusSchema = z.infer<typeof updateUserStatusSchema>;

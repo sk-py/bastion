@@ -34,6 +34,7 @@ const SERVER_SELECT = `
 export const createNewServer = async (
   data: CreateServerData,
   userId: string,
+  workspaceId: string,
 ): Promise<Server> => {
   const {
     authMethod,
@@ -46,7 +47,7 @@ export const createNewServer = async (
     encryptedPrivateKey,
   } = data;
   const { rows } = await pool.query(
-    `INSERT INTO servers (user_id, name, host, port, username, auth_method, encrypted_password, encrypted_private_key, encrypted_passphrase) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO servers (user_id, name, host, port, username, auth_method, encrypted_password, encrypted_private_key, encrypted_passphrase, workspace_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING ${SERVER_SELECT}`,
     [
       userId,
@@ -58,6 +59,7 @@ export const createNewServer = async (
       encryptedPassword,
       encryptedPrivateKey,
       encryptedPassphrase,
+      workspaceId
     ],
   );
 
@@ -186,8 +188,8 @@ export const updateDiscovery = async (
 
 export const deleteServer = async (data: DeleteServerSchema): Promise<void> => {
   const { rowCount } = await pool.query(
-    "DELETE FROM servers WHERE user_id = $1 AND id = $2 RETURNING *",
-    [data.userId, data.serverId],
+    "DELETE FROM servers WHERE workspace_id = $1 AND id = $2 RETURNING *",
+    [data.workspaceId, data.serverId],
   );
 
   if (rowCount === 0) {

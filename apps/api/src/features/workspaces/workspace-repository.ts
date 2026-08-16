@@ -1,6 +1,11 @@
 import pool from "src/db/pool.js";
 import type { UserRole } from "../auth/local/auth-types.js";
 
+export interface WorkspaceUserGroup {
+  id: string;
+  name: string;
+}
+
 export interface WorkspaceUser {
   id: string;
   name: string;
@@ -8,6 +13,7 @@ export interface WorkspaceUser {
   role: UserRole;
   isActive: boolean;
   createdAt: Date;
+  groups: WorkspaceUserGroup[];
 }
 
 export interface WorkspaceServer {
@@ -26,15 +32,35 @@ export const listWorkspaceUsers = async (
   const { rows } = await pool.query<WorkspaceUser>(
     `
       SELECT
-        id,
-        name,
-        email,
-        role,
-        is_active AS "isActive",
-        created_at AS "createdAt"
-      FROM users
-      WHERE workspace_id = $1
-      ORDER BY name ASC
+        u.id,
+        u.name,
+        u.email,
+        u.role,
+        u.is_active AS "isActive",
+        u.created_at AS "createdAt",
+        COALESCE(
+          json_agg(
+            DISTINCT jsonb_build_object(
+              'id', g.id,
+              'name', g.name
+            )
+          ) FILTER (WHERE g.id IS NOT NULL),
+          '[]'
+        ) AS groups
+      FROM users u
+      LEFT JOIN group_users gu
+        ON gu.user_id = u.id
+      LEFT JOIN groups g
+        ON g.id = gu.group_id
+      WHERE u.workspace_id = $1
+      GROUP BY
+        u.id,
+        u.name,
+        u.email,
+        u.role,
+        u.is_active,
+        u.created_at
+      ORDER BY u.name ASC
     `,
     [workspaceId],
   );

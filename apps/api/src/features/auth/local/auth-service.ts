@@ -9,6 +9,8 @@ import {
   findUserByEmail,
   findUserById,
   completeInitialSetup as completeInitialSetupRepository,
+  updateUser as updateUserRepository,
+  updateUserStatus as updateUserStatusRepository,
 } from "./auth-repository.js";
 import type { LoginUserInput, User, UserRole } from "./auth-types.js";
 import crypto from "crypto";
@@ -173,6 +175,43 @@ export const completeInitialSetup = async ({
 
   if (!user) {
     throw new BadRequestError("Initial setup is not available");
+  }
+
+  return toPublicUser(user);
+};
+
+export const updateUser = async (
+  userId: string,
+  workspaceId: string,
+  data: {
+    name: string;
+    role: "admin" | "member";
+    email: string;
+    mustChangePassword: boolean;
+  },
+) => {
+  const user = await updateUserRepository(userId, workspaceId, data);
+
+  if (!user) {
+    throw new BadRequestError("User not found.");
+  }
+
+  return toPublicUser(user);
+};
+
+export const updateUserStatus = async (
+  userId: string,
+  workspaceId: string,
+  isActive: boolean,
+) => {
+  const user = await updateUserStatusRepository(userId, workspaceId, isActive);
+
+  if (!user) {
+    throw new BadRequestError("User not found.");
+  }
+
+  if (!isActive) {
+    await deleteSessionsByUserId(userId);
   }
 
   return toPublicUser(user);

@@ -135,3 +135,73 @@ export const completeInitialSetup = async (
 
   return rows[0] ?? null;
 };
+
+export const updateUser = async (
+  userId: string,
+  workspaceId: string,
+  data: {
+    name: string;
+    role: "admin" | "member";
+    email: string;
+    mustChangePassword: boolean;
+  },
+): Promise<User | null> => {
+  const { rows } = await pool.query<User>(
+    `
+      UPDATE users
+      SET
+        name = $1,
+        role = $2,
+        email = $3,
+        must_change_password = $4,
+        updated_at = NOW()
+      WHERE id = $5
+        AND workspace_id = $6
+      RETURNING
+        id,
+        workspace_id AS "workspaceId",
+        name,
+        email,
+        password_hash AS "passwordHash",
+        role,
+        must_change_password AS "mustChangePassword",
+        is_active AS "isActive",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+    `,
+    [data.name, data.role, data.email, data.mustChangePassword, userId, workspaceId],
+  );
+
+  return rows[0] ?? null;
+};
+
+export const updateUserStatus = async (
+  userId: string,
+  workspaceId: string,
+  isActive: boolean,
+): Promise<User | null> => {
+  const { rows } = await pool.query<User>(
+    `
+      UPDATE users
+      SET
+        is_active = $1,
+        updated_at = NOW()
+      WHERE id = $2
+        AND workspace_id = $3
+      RETURNING
+        id,
+        workspace_id AS "workspaceId",
+        name,
+        email,
+        password_hash AS "passwordHash",
+        role,
+        must_change_password AS "mustChangePassword",
+        is_active AS "isActive",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+    `,
+    [isActive, userId, workspaceId],
+  );
+
+  return rows[0] ?? null;
+};

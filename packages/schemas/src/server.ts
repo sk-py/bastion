@@ -189,7 +189,7 @@ export const serverIdSchema = z.object({
 
 export const deleteServerSchema = z.object({
   serverId: z.uuid(),
-  userId: z.uuid(),
+  workspaceId: z.uuid(),
 });
 
 export type CreateServerSchema = z.infer<typeof createServerSchema>;

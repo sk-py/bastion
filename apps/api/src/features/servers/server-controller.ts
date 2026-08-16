@@ -10,7 +10,11 @@ import type { ServerIdSchema } from "@bastion/schemas";
 import type { User } from "../auth/local/auth-types.js";
 
 export const addNewServer = async (req: Request, res: Response) => {
-  const createdServer = await addServer(req.body, req.user.id);
+  const createdServer = await addServer(
+    req.body,
+    req.user.id,
+    req.user.workspaceId,
+  );
 
   res.status(201).json({
     status: "success",
@@ -48,9 +52,9 @@ export const updateServer = async (req: Request, res: Response) => {
 
 export const removeServerById = async (req: Request, res: Response) => {
   const { id } = req.params as ServerIdSchema;
-  const userId = req.user.id;
+  const workspaceId = req.user.workspaceId;
 
-  await deleteServerById({ serverId: id, userId });
+  await deleteServerById({ serverId: id, workspaceId  });
 
   res.status(200).json({
     status: "success",

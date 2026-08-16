@@ -25,6 +25,7 @@ import type { UserRole } from "../auth/local/auth-types.js";
 export const addServer = async (
   data: CreateServerSchema,
   userId: string,
+  workspaceId: string,
 ): Promise<Server> => {
   const encryptedPassword =
     data.authMethod === "password" ? encrypt(data.password!) : null;
@@ -35,6 +36,7 @@ export const addServer = async (
   const createdServer = await createNewServer(
     { ...data, encryptedPassword, encryptedPassphrase, encryptedPrivateKey },
     userId,
+    workspaceId,
   );
 
   try {
@@ -150,9 +152,9 @@ export const updateServerService = async (
 
 export const deleteServerById = async ({
   serverId,
-  userId,
+  workspaceId,
 }: DeleteServerSchema) => {
-  await deleteServer({ serverId, userId });
+  await deleteServer({ serverId, workspaceId });
 };
 
 export const testServerConnection = async (

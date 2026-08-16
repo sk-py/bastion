@@ -6,6 +6,8 @@ import {
   logoutUser,
   registerUser,
   completeInitialSetup as completeInitialSetupService,
+  updateUser as updateUserService,
+  updateUserStatus as updateUserStatusService,
 } from "./auth-service.js";
 import { env } from "src/config.js";
 
@@ -90,4 +92,30 @@ export const completeInitialSetup = async (req: Request, res: Response) => {
 
 export const me = async (req: Request, res: Response) => {
   return res.status(200).json({ status: "success", data: req.user });
+};
+
+export const updateUser = async (req: Request, res: Response) => {
+  const { id } = req.params as { id: string };
+
+  const user = await updateUserService(id, req.user.workspaceId, req.body);
+
+  return res.status(200).json({
+    status: "success",
+    data: user,
+  });
+};
+
+export const updateUserStatus = async (req: Request, res: Response) => {
+  const { id } = req.params as { id: string };
+
+  const user = await updateUserStatusService(
+    id,
+    req.user.workspaceId,
+    req.body.isActive,
+  );
+
+  return res.status(200).json({
+    status: "success",
+    data: user,
+  });
 };
