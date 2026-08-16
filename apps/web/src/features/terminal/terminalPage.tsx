@@ -437,7 +437,7 @@ export default function TerminalPage() {
 
         // Execute the cleanup and navigation
         if (server) sessionStorage.removeItem(`bastion_term_${server.id}`);
-        navigate("/");
+        navigate("/servers");
     };
 
     if (isLoading) return <div className="p-4 md:p-6 text-foreground">Loading terminal...</div>;

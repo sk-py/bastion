@@ -48,41 +48,68 @@ const RECORDING_FROM = `
   JOIN users u ON u.id = r.user_id
 `;
 
+type UserRole = "owner" | "admin" | "member";
+
 export const listRecordings = async (
   userId: string,
+  workspaceId: string,
+  role: UserRole,
   serverId?: string,
 ): Promise<RecordingRow[]> => {
   const query = serverId
     ? `
-      SELECT ${RECORDING_SELECT}
-      ${RECORDING_FROM}
-      WHERE r.user_id = $1
-        AND r.server_id = $2
-      ORDER BY r.started_at DESC
-    `
+        SELECT ${RECORDING_SELECT}
+        ${RECORDING_FROM}
+        WHERE s.workspace_id = $1
+          AND r.server_id = $2
+          AND (
+            $3 IN ('owner', 'admin')
+            OR r.user_id = $4
+          )
+        ORDER BY r.started_at DESC
+      `
     : `
-      SELECT ${RECORDING_SELECT}
-      ${RECORDING_FROM}
-      WHERE r.user_id = $1
-      ORDER BY r.started_at DESC
-    `;
+        SELECT ${RECORDING_SELECT}
+        ${RECORDING_FROM}
+        WHERE s.workspace_id = $1
+          AND (
+            $2 IN ('owner', 'admin')
+            OR r.user_id = $3
+          )
+        ORDER BY r.started_at DESC
+      `;
 
-  const params = serverId ? [userId, serverId] : [userId];
+  const params = serverId
+    ? [workspaceId, serverId, role, userId]
+    : [workspaceId, role, userId];
 
-  const { rows } = await pool.query<RecordingRow>(query, params);
+  const { rows } = await pool.query<RecordingRow>(
+    query,
+    params,
+  );
+
   return rows;
 };
 
-export const findRecordingById = async (
+export const findAccessibleRecordingById = async (
   recordingId: string,
+  userId: string,
+  workspaceId: string,
+  role: UserRole,
 ): Promise<RecordingRow | null> => {
   const { rows } = await pool.query<RecordingRow>(
     `
       SELECT ${RECORDING_SELECT}
       ${RECORDING_FROM}
       WHERE r.id = $1
+        AND s.workspace_id = $2
+        AND (
+          $3 IN ('owner', 'admin')
+          OR r.user_id = $4
+        )
+      LIMIT 1
     `,
-    [recordingId],
+    [recordingId, workspaceId, role, userId],
   );
 
   return rows[0] ?? null;
@@ -103,8 +130,17 @@ export const insertRecording = async (
   data: InsertRecordingData,
 ): Promise<void> => {
   await pool.query(
-    `INSERT INTO terminal_recordings (id, session_id, server_id, user_id, provider, ip_address, user_agent, auth_session_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    `INSERT INTO terminal_recordings (
+      id,
+      session_id,
+      server_id,
+      user_id,
+      provider,
+      ip_address,
+      user_agent,
+      auth_session_id
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
       data.id,
       data.sessionId,
@@ -124,20 +160,31 @@ export interface CompleteRecordingData {
   durationSeconds: number;
 }
 
-// Returns rowCount so the caller can detect and log a zero-match UPDATE
-// instead of it failing silently — this is what would have caught the
-// mismatched-id bug immediately instead of needing a full investigation.
+// Returns rowCount so the caller can detect and log a zero-match UPDATE.
 export const markRecordingCompleted = async (
   recordingId: string,
   data: CompleteRecordingData,
 ): Promise<number> => {
   const { rowCount } = await pool.query(
-    `UPDATE terminal_recordings
-     SET status = 'completed', storage_key = $1, file_size_bytes = $2,
-         duration_seconds = $3, ended_at = NOW(), updated_at = NOW()
-     WHERE id = $4`,
-    [data.storageKey, data.fileSizeBytes, data.durationSeconds, recordingId],
+    `
+      UPDATE terminal_recordings
+      SET
+        status = 'completed',
+        storage_key = $1,
+        file_size_bytes = $2,
+        duration_seconds = $3,
+        ended_at = NOW(),
+        updated_at = NOW()
+      WHERE id = $4
+    `,
+    [
+      data.storageKey,
+      data.fileSizeBytes,
+      data.durationSeconds,
+      recordingId,
+    ],
   );
+
   return rowCount ?? 0;
 };
 
@@ -145,20 +192,33 @@ export const markRecordingFailed = async (
   recordingId: string,
 ): Promise<number> => {
   const { rowCount } = await pool.query(
-    `UPDATE terminal_recordings SET status = 'failed', ended_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    `
+      UPDATE terminal_recordings
+      SET
+        status = 'failed',
+        ended_at = NOW(),
+        updated_at = NOW()
+      WHERE id = $1
+    `,
     [recordingId],
   );
+
   return rowCount ?? 0;
 };
 
-// Boot-time correctness sweep — not the nightly retention job. This only
-// resolves rows still claiming 'recording' after a process restart, where
-// nothing in memory survived to ever call finalize(). Retention (deleting old
-// completed recordings on a schedule) is a separate, deliberately deferred
-// feature with its own table/column decisions still to be made.
+// Boot-time correctness sweep.
+// This is intentionally separate from retention.
 export const sweepStuckRecordings = async (): Promise<number> => {
   const { rowCount } = await pool.query(
-    `UPDATE terminal_recordings SET status = 'failed', ended_at = NOW(), updated_at = NOW() WHERE status = 'recording'`,
+    `
+      UPDATE terminal_recordings
+      SET
+        status = 'failed',
+        ended_at = NOW(),
+        updated_at = NOW()
+      WHERE status = 'recording'
+    `,
   );
+
   return rowCount ?? 0;
 };

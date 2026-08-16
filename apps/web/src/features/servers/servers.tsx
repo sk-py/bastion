@@ -249,7 +249,7 @@ function ServerEditDialog({ isOpen, onClose, onSubmit, defaultValues }: { isOpen
   const form = useForm<ServerFormValues>({
     resolver: async (data, context, options) => {
       const validationPayload: Partial<ServerFormValues> = { ...data };
-      
+
       // 1. Strip irrelevant fields based on the currently selected auth method
       if (validationPayload.authMethod === "password") {
         delete validationPayload.privateKey;
@@ -457,7 +457,7 @@ export default function ServersPage() {
                     onEdit={() => { setSelectedServer(server); setIsEditOpen(true); }}
                     onDelete={() => { setSelectedServer(server); setIsDeleteOpen(true); }}
                     onOpenTerminal={() => navigate(`/servers/${server.id}/terminal`)}
-                    onViewSessions={() => navigate(`/sessions`)}
+                    onViewSessions={() => navigate(`/sessions?serverId=${server.id}`)}
                   />
                 </TableCell>
               </TableRow>
