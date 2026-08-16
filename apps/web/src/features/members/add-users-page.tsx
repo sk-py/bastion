@@ -13,11 +13,15 @@ import {
   Calendar,
   MoreVertical,
   Loader2,
+  Pencil,
+  Power,
 } from "lucide-react";
 
 import {
   addUserSchema,
+  updateUserSchema,
   type AddUserSchema,
+  type UpdateUserSchema,
 } from "@bastion/schemas";
 
 import { Button } from "@/components/ui/button";
@@ -31,10 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Avatar,
-  AvatarFallback,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -53,17 +54,61 @@ import {
 import { Label } from "@/components/ui/label";
 
 import { useWorkspaceUsers } from "@/features/groups/hooks/use-groups";
-import { useAddUser } from "./hooks/use-users";
+import {
+  useAddUser,
+  useUpdateUser,
+  useUpdateUserStatus,
+} from "./hooks/use-users";
+import type { Group } from "@/api/groups";
 
 type Role = "owner" | "admin" | "member";
-
-type StatusFilter = "all" | "active" | "inactive";
 type RoleFilter = "all" | Role;
+type StatusFilter = "all" | "active" | "inactive";
 
-const APP_VERSION = "v2.4.0";
+interface WorkspaceUser {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  mustChangePassword?: boolean;
+  isActive: boolean;
+  createdAt: string | Date;
+  groups: Group[]
+}
+
+const getInitials = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+
+const getRoleLabel = (role: Role) => {
+  switch (role) {
+    case "owner":
+      return "Owner";
+    case "admin":
+      return "Admin";
+    case "member":
+      return "Member";
+  }
+};
+
+const getStatusStyles = (isActive: boolean) =>
+  isActive
+    ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+    : "text-zinc-500 bg-zinc-500/10 border-zinc-500/20";
 
 export default function UsersPage() {
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] =
+    useState(false);
+
+  const [selectedUser, setSelectedUser] =
+    useState<WorkspaceUser | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] =
@@ -72,10 +117,12 @@ export default function UsersPage() {
     useState<StatusFilter>("all");
 
   const {
-    data: users = [],
+    data: usersData = [],
     isPending,
     isError,
   } = useWorkspaceUsers();
+
+  const users = usersData as WorkspaceUser[];
 
   const {
     mutateAsync: addUser,
@@ -83,14 +130,30 @@ export default function UsersPage() {
   } = useAddUser();
 
   const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
+    mutateAsync: updateUser,
+    isPending: isUpdatingUser,
+  } = useUpdateUser();
+
+  const {
+    mutateAsync: updateUserStatus,
+    isPending: isUpdatingUserStatus,
+  } = useUpdateUserStatus();
+
+  /*
+   * ------------------------------------------------------------
+   * ADD USER FORM
+   * ------------------------------------------------------------
+   */
+
+  const {
+    register: registerAddUser,
+    handleSubmit: handleSubmitAddUser,
+    reset: resetAddUser,
+    setValue: setAddUserValue,
+    watch: watchAddUser,
     formState: {
-      errors,
-      isSubmitting,
+      errors: addUserErrors,
+      isSubmitting: isAddUserSubmitting,
     },
   } = useForm<AddUserSchema>({
     resolver: zodResolver(addUserSchema),
@@ -99,12 +162,120 @@ export default function UsersPage() {
       email: "",
       password: "",
       role: "member",
-      mustChangePassword: true,
+      mustChangePassword: false,
     },
   });
 
-  const selectedRole = watch("role");
-  const mustChangePassword = watch("mustChangePassword");
+  const addUserRole = watchAddUser("role");
+  const addUserMustChangePassword =
+    watchAddUser("mustChangePassword");
+
+  const handleAddUser = async (
+    values: AddUserSchema,
+  ) => {
+    await addUser(values);
+
+    resetAddUser({
+      name: "",
+      email: "",
+      password: "",
+      role: "member",
+      mustChangePassword: true,
+    });
+
+    setIsAddUserOpen(false);
+  };
+
+  /*
+   * ------------------------------------------------------------
+   * EDIT USER FORM
+   * ------------------------------------------------------------
+   */
+
+  const {
+    register: registerEditUser,
+    handleSubmit: handleSubmitEditUser,
+    reset: resetEditUser,
+    setValue: setEditUserValue,
+    watch: watchEditUser,
+    formState: {
+      errors: editUserErrors,
+      isSubmitting: isEditUserSubmitting,
+    },
+  } = useForm<UpdateUserSchema>({
+    resolver: zodResolver(updateUserSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      role: "member",
+      mustChangePassword: false,
+    },
+  });
+
+  const editUserRole = watchEditUser("role");
+  const editUserMustChangePassword =
+    watchEditUser("mustChangePassword");
+
+  const openEditUser = (user: WorkspaceUser) => {
+    if (user.role === "owner") return;
+
+    setSelectedUser(user);
+
+    resetEditUser({
+      name: user.name,
+      email: user.email,
+      role: user.role === "admin" ? "admin" : "member",
+      mustChangePassword:
+        user.mustChangePassword ?? false,
+    });
+
+    setIsEditUserOpen(true);
+  };
+
+  const handleUpdateUser = async (
+    values: UpdateUserSchema,
+  ) => {
+    if (!selectedUser) return;
+
+    await updateUser({
+      userId: selectedUser.id,
+      data: values,
+    });
+
+    setIsEditUserOpen(false);
+    setSelectedUser(null);
+  };
+
+  /*
+   * ------------------------------------------------------------
+   * ENABLE / DISABLE
+   * ------------------------------------------------------------
+   */
+
+  const openStatusDialog = (user: WorkspaceUser) => {
+    if (user.role === "owner") return;
+
+    setSelectedUser(user);
+    setIsStatusDialogOpen(true);
+  };
+
+  const handleUpdateUserStatus = async () => {
+    if (!selectedUser) return;
+
+    await updateUserStatus({
+      userId: selectedUser.id,
+      isActive: !selectedUser.isActive,
+    });
+
+    setIsStatusDialogOpen(false);
+    setSelectedUser(null);
+  };
+
+  /*
+   * ------------------------------------------------------------
+   * FILTERING
+   * ------------------------------------------------------------
+   */
 
   const filteredUsers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -121,8 +292,10 @@ export default function UsersPage() {
 
       const matchesStatus =
         statusFilter === "all" ||
-        (statusFilter === "active" && user.isActive) ||
-        (statusFilter === "inactive" && !user.isActive);
+        (statusFilter === "active" &&
+          user.isActive) ||
+        (statusFilter === "inactive" &&
+          !user.isActive);
 
       return (
         matchesSearch &&
@@ -137,6 +310,12 @@ export default function UsersPage() {
     statusFilter,
   ]);
 
+  /*
+   * ------------------------------------------------------------
+   * METRICS
+   * ------------------------------------------------------------
+   */
+
   const totalMembers = users.filter(
     (user) => user.role === "member",
   ).length;
@@ -150,61 +329,6 @@ export default function UsersPage() {
   const activeUsers = users.filter(
     (user) => user.isActive,
   ).length;
-
-  const getInitials = (name: string) => {
-    return name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase();
-  };
-
-  const getRoleLabel = (role: Role) => {
-    switch (role) {
-      case "owner":
-        return "Owner";
-      case "admin":
-        return "Admin";
-      case "member":
-        return "Member";
-    }
-  };
-
-  const getStatusStyles = (isActive: boolean) => {
-    return isActive
-      ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
-      : "text-zinc-500 bg-zinc-500/10 border-zinc-500/20";
-  };
-
-  const handleAddUser = async (
-    values: AddUserSchema,
-  ) => {
-    await addUser(values);
-
-    reset({
-      name: "",
-      email: "",
-      password: "",
-      role: "member",
-      mustChangePassword: true,
-    });
-
-    setIsAddUserOpen(false);
-  };
-
-  const handleCloseAddUser = () => {
-    reset({
-      name: "",
-      email: "",
-      password: "",
-      role: "member",
-      mustChangePassword: true,
-    });
-
-    setIsAddUserOpen(false);
-  };
 
   return (
     <div className="p-8 w-full bg-background min-h-screen text-foreground space-y-8">
@@ -461,7 +585,20 @@ export default function UsersPage() {
                   </TableCell>
 
                   <TableCell className="text-muted-foreground">
-                    —
+                    {user.groups.length === 0 ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {user.groups.map((group) => (
+                          <span
+                            key={group.id}
+                            className="rounded-md bg-muted px-2 py-0.5 text-xs"
+                          >
+                            {group.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </TableCell>
 
                   <TableCell>
@@ -496,23 +633,36 @@ export default function UsersPage() {
                   </TableCell>
 
                   <TableCell className="text-right pr-6">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-3 text-xs"
-                      >
-                        Edit
-                      </Button>
+                    {user.role === "owner" ? (
+                      <span className="text-xs text-muted-foreground">
+                        —
+                      </span>
+                    ) : (
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-3 text-xs"
+                          onClick={() =>
+                            openEditUser(user)
+                          }
+                        >
+                          <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                          Edit
+                        </Button>
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground"
+                          onClick={() =>
+                            openStatusDialog(user)
+                          }
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -521,7 +671,6 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Pagination placeholder */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <div>
           Showing {filteredUsers.length} of{" "}
@@ -529,38 +678,46 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Add Member */}
+      {/* ====================================================== */}
+      {/* ADD MEMBER                                             */}
+      {/* ====================================================== */}
+
       <Dialog
         open={isAddUserOpen}
         onOpenChange={(open) => {
           if (!open) {
-            handleCloseAddUser();
-          } else {
-            setIsAddUserOpen(true);
+            resetAddUser({
+              name: "",
+              email: "",
+              password: "",
+              role: "member",
+              mustChangePassword: true,
+            });
           }
+
+          setIsAddUserOpen(open);
         }}
       >
         <DialogContent className="sm:max-w-[425px] bg-background border-border shadow-lg">
           <DialogHeader>
-            <DialogTitle className="text-xl">
+            <DialogTitle>
               Add Team Member
             </DialogTitle>
 
-            <DialogDescription className="text-muted-foreground">
+            <DialogDescription>
               Create a user account and assign their
               workspace role.
             </DialogDescription>
           </DialogHeader>
 
           <form
-            onSubmit={handleSubmit(
+            onSubmit={handleSubmitAddUser(
               handleAddUser,
             )}
           >
             <div className="space-y-4 py-2">
-              {/* Name */}
               <div className="space-y-2">
-                <Label htmlFor="name">
+                <Label htmlFor="add-name">
                   Name{" "}
                   <span className="text-destructive">
                     *
@@ -568,22 +725,20 @@ export default function UsersPage() {
                 </Label>
 
                 <Input
-                  id="name"
+                  id="add-name"
                   placeholder="Enter full name"
-                  className="bg-background"
-                  {...register("name")}
+                  {...registerAddUser("name")}
                 />
 
-                {errors.name && (
+                {addUserErrors.name && (
                   <p className="text-xs text-destructive">
-                    {errors.name.message}
+                    {addUserErrors.name.message}
                   </p>
                 )}
               </div>
 
-              {/* Email */}
               <div className="space-y-2">
-                <Label htmlFor="email">
+                <Label htmlFor="add-email">
                   Email{" "}
                   <span className="text-destructive">
                     *
@@ -591,24 +746,21 @@ export default function UsersPage() {
                 </Label>
 
                 <Input
-                  id="email"
+                  id="add-email"
                   type="email"
                   placeholder="name@example.com"
-                  autoComplete="email"
-                  className="bg-background"
-                  {...register("email")}
+                  {...registerAddUser("email")}
                 />
 
-                {errors.email && (
+                {addUserErrors.email && (
                   <p className="text-xs text-destructive">
-                    {errors.email.message}
+                    {addUserErrors.email.message}
                   </p>
                 )}
               </div>
 
-              {/* Password */}
               <div className="space-y-2">
-                <Label htmlFor="password">
+                <Label htmlFor="add-password">
                   Password{" "}
                   <span className="text-destructive">
                     *
@@ -616,46 +768,38 @@ export default function UsersPage() {
                 </Label>
 
                 <Input
-                  id="password"
+                  id="add-password"
                   type="password"
                   placeholder="Enter initial password"
-                  autoComplete="new-password"
-                  className="bg-background"
-                  {...register("password")}
+                  {...registerAddUser("password")}
                 />
 
-                {errors.password && (
+                {addUserErrors.password && (
                   <p className="text-xs text-destructive">
-                    {errors.password.message}
+                    {addUserErrors.password.message}
                   </p>
                 )}
               </div>
 
-              {/* Role */}
               <div className="space-y-2">
-                <Label>
-                  Role{" "}
-                  <span className="text-destructive">
-                    *
-                  </span>
-                </Label>
+                <Label>Role</Label>
 
                 <Select
-                  value={selectedRole}
+                  value={addUserRole}
                   onValueChange={(value) =>
-                    setValue(
+                    setAddUserValue(
                       "role",
                       value as
-                        | "admin"
-                        | "member",
+                      | "admin"
+                      | "member",
                       {
                         shouldValidate: true,
                       },
                     )
                   }
                 >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select role" />
+                  <SelectTrigger>
+                    <SelectValue />
                   </SelectTrigger>
 
                   <SelectContent>
@@ -668,22 +812,17 @@ export default function UsersPage() {
                     </SelectItem>
                   </SelectContent>
                 </Select>
-
-                {errors.role && (
-                  <p className="text-xs text-destructive">
-                    {errors.role.message}
-                  </p>
-                )}
               </div>
 
-              {/* Must Change Password */}
-              <div className="rounded-lg border border-border p-3">
+              <div className="border rounded-lg p-3">
                 <div className="flex items-start gap-3">
                   <Checkbox
-                    id="mustChangePassword"
-                    checked={mustChangePassword}
+                    id="add-must-change-password"
+                    checked={
+                      addUserMustChangePassword
+                    }
                     onCheckedChange={(checked) =>
-                      setValue(
+                      setAddUserValue(
                         "mustChangePassword",
                         checked === true,
                         {
@@ -693,33 +832,31 @@ export default function UsersPage() {
                     }
                   />
 
-                  <div className="space-y-1">
+                  <div>
                     <Label
-                      htmlFor="mustChangePassword"
+                      htmlFor="add-must-change-password"
                       className="cursor-pointer"
                     >
                       Require password change on first
                       login
                     </Label>
 
-                    <p className="text-xs text-muted-foreground">
-                      The user will be redirected to the
-                      account setup screen after signing
-                      in.
+                    <p className="text-xs text-muted-foreground mt-1">
+                      The user will be required to
+                      complete initial setup after
+                      signing in.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <DialogFooter className="mt-4 gap-2 sm:justify-end">
+            <DialogFooter className="mt-4">
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleCloseAddUser}
-                disabled={
-                  isAddingUser ||
-                  isSubmitting
+                onClick={() =>
+                  setIsAddUserOpen(false)
                 }
               >
                 Cancel
@@ -729,7 +866,7 @@ export default function UsersPage() {
                 type="submit"
                 disabled={
                   isAddingUser ||
-                  isSubmitting
+                  isAddUserSubmitting
                 }
               >
                 {isAddingUser ? (
@@ -738,14 +875,257 @@ export default function UsersPage() {
                     Creating...
                   </>
                 ) : (
+                  "Add Member"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ====================================================== */}
+      {/* EDIT MEMBER                                            */}
+      {/* ====================================================== */}
+
+      <Dialog
+        open={isEditUserOpen}
+        onOpenChange={(open) => {
+          setIsEditUserOpen(open);
+
+          if (!open) {
+            setSelectedUser(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px] bg-background border-border shadow-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Edit Team Member
+            </DialogTitle>
+
+            <DialogDescription>
+              Update this user's account details and
+              workspace role.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={handleSubmitEditUser(
+              handleUpdateUser,
+            )}
+          >
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">
+                  Name{" "}
+                  <span className="text-destructive">
+                    *
+                  </span>
+                </Label>
+
+                <Input
+                  id="edit-name"
+                  {...registerEditUser("name")}
+                />
+
+                {editUserErrors.name && (
+                  <p className="text-xs text-destructive">
+                    {editUserErrors.name.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">
+                  Email{" "}
+                  <span className="text-destructive">
+                    *
+                  </span>
+                </Label>
+
+                <Input
+                  id="edit-email"
+                  type="email"
+                  {...registerEditUser("email")}
+                />
+
+                {editUserErrors.email && (
+                  <p className="text-xs text-destructive">
+                    {editUserErrors.email.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Role</Label>
+
+                <Select
+                  value={editUserRole}
+                  onValueChange={(value) =>
+                    setEditUserValue(
+                      "role",
+                      value as
+                      | "admin"
+                      | "member",
+                      {
+                        shouldValidate: true,
+                      },
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="admin">
+                      Admin
+                    </SelectItem>
+
+                    <SelectItem value="member">
+                      Member
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="border rounded-lg p-3">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="edit-must-change-password"
+                    checked={
+                      editUserMustChangePassword
+                    }
+                    onCheckedChange={(checked) =>
+                      setEditUserValue(
+                        "mustChangePassword",
+                        checked === true,
+                        {
+                          shouldValidate: true,
+                        },
+                      )
+                    }
+                  />
+
+                  <div>
+                    <Label
+                      htmlFor="edit-must-change-password"
+                      className="cursor-pointer"
+                    >
+                      Require password change on next
+                      login
+                    </Label>
+
+                    <p className="text-xs text-muted-foreground mt-1">
+                      The user will be required to
+                      complete the setup flow.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setIsEditUserOpen(false)
+                }
+              >
+                Cancel
+              </Button>
+
+              <Button
+                type="submit"
+                disabled={
+                  isUpdatingUser ||
+                  isEditUserSubmitting
+                }
+              >
+                {isUpdatingUser ? (
                   <>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Member
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Save Changes
                   </>
                 )}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ====================================================== */}
+      {/* ENABLE / DISABLE                                       */}
+      {/* ====================================================== */}
+
+      <Dialog
+        open={isStatusDialogOpen}
+        onOpenChange={(open) => {
+          setIsStatusDialogOpen(open);
+
+          if (!open) {
+            setSelectedUser(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px] bg-background border-border shadow-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedUser?.isActive
+                ? "Disable User"
+                : "Enable User"}
+            </DialogTitle>
+
+            <DialogDescription>
+              {selectedUser?.isActive
+                ? `Disable ${selectedUser?.name}'s account? They will no longer be able to sign in, and their active sessions will be revoked.`
+                : `Enable ${selectedUser?.name}'s account? They will be able to sign in again.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setIsStatusDialogOpen(false)
+              }
+              disabled={isUpdatingUserStatus}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="button"
+              variant={
+                selectedUser?.isActive
+                  ? "destructive"
+                  : "default"
+              }
+              onClick={handleUpdateUserStatus}
+              disabled={isUpdatingUserStatus}
+            >
+              {isUpdatingUserStatus ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Power className="mr-2 h-4 w-4" />
+                  {selectedUser?.isActive
+                    ? "Disable User"
+                    : "Enable User"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

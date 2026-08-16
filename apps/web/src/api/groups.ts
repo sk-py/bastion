@@ -28,13 +28,18 @@ export interface GroupServer {
   operatingSystem: string | null;
 }
 
+export interface WorkspaceUserGroup {
+  id: string;
+  name: string;
+}
 export interface WorkspaceUser {
   id: string;
   name: string;
   email: string;
-  role: "owner" | "admin" | "member";
+  role: "admin" | "member" | "owner";
   isActive: boolean;
-  createdAt: string;
+  createdAt: Date;
+  groups: WorkspaceUserGroup[];
 }
 
 export interface WorkspaceServer {
@@ -72,10 +77,7 @@ export const getGroupServers = async (groupId: string) => {
 };
 
 export const createGroup = async (input: CreateGroupSchema) => {
-  const { data } = await api.post<ApiResponse<Group>>(
-    "/groups",
-    input,
-  );
+  const { data } = await api.post<ApiResponse<Group>>("/groups", input);
   return data.data;
 };
 
@@ -101,45 +103,30 @@ export const addGroupMember = async (
   await api.post(`/groups/${groupId}/members`, input);
 };
 
-export const removeGroupMember = async (
-  groupId: string,
-  userId: string,
-) => {
-  await api.delete(
-    `/groups/${groupId}/members/${userId}`,
-  );
+export const removeGroupMember = async (groupId: string, userId: string) => {
+  await api.delete(`/groups/${groupId}/members/${userId}`);
 };
 
-export const addGroupServer = async (
-  groupId: string,
-  serverId: string,
-) => {
+export const addGroupServer = async (groupId: string, serverId: string) => {
   await api.post(`/groups/${groupId}/servers`, {
     serverId,
   });
 };
 
-export const removeGroupServer = async (
-  groupId: string,
-  serverId: string,
-) => {
-  await api.delete(
-    `/groups/${groupId}/servers/${serverId}`,
-  );
+export const removeGroupServer = async (groupId: string, serverId: string) => {
+  await api.delete(`/groups/${groupId}/servers/${serverId}`);
 };
 
 export const getWorkspaceUsers = async () => {
-  const { data } = await api.get<ApiResponse<WorkspaceUser[]>>(
-    "/workspace/users",
-  );
+  const { data } =
+    await api.get<ApiResponse<WorkspaceUser[]>>("/workspace/users");
 
   return data.data;
 };
 
 export const getWorkspaceServers = async () => {
-  const { data } = await api.get<ApiResponse<WorkspaceServer[]>>(
-    "/workspace/servers",
-  );
+  const { data } =
+    await api.get<ApiResponse<WorkspaceServer[]>>("/workspace/servers");
 
   return data.data;
 };

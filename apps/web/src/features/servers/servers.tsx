@@ -1,24 +1,29 @@
-import { useState, useEffect } from "react";
-import { Search, Plus, Eye, Edit2, Trash2, Activity, Server as ServerIcon, SquareTerminal, Timeline } from "lucide-react";
-import { Controller, useForm, type UseFormReturn } from "react-hook-form";
+import { useState, useEffect, useRef } from "react";
+import { Search, Plus, Eye, Edit2, Trash2, Activity, Server as ServerIcon, SquareTerminal, Timeline, Upload } from "lucide-react";
+import { Controller, useForm, FormProvider, useFormContext, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { createServerSchema, updateServerSchema, type CreateServerSchema, type UpdateServerSchema } from "@bastion/schemas";
 
-import { useServers, useAddServer, useUpdateServer, useTestServerConnection } from "./hooks/use-servers";
+import { useServers, useAddServer, useUpdateServer, useTestServerConnection, useDeleteServer } from "./hooks/use-servers";
 
 import ubuntuLogo from "@/assets/os-icons/ubuntu.svg";
 import debianLogo from "@/assets/os-icons/debian.svg";
 import centosLogo from "@/assets/os-icons/cent-os.svg";
 import { useNavigate } from "react-router";
+import { useCurrentUser } from "../auth/hooks/use-current-user";
+import { ServerRowActions } from "./components/server-row-actions";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 // --- Types ---
 
@@ -59,9 +64,40 @@ const OSIcon = ({ os }: { os: string | null }) => {
   return <ServerIcon className="w-4 h-4 text-muted-foreground" />;
 };
 
-function ServerFormFields({ form }: { form: UseFormReturn<any> }) {
-  const { register, control, watch, formState: { errors } } = form;
-  const watchAuthMethod = watch("authMethod");
+function ServerFormFields() {
+  const { register, control, setValue, formState: { errors } } = useFormContext<ServerFormValues>();
+  const watchAuthMethod = useWatch({ control, name: "authMethod" });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Sanity check: PEM files are very small. Block massive files.
+    if (file.size > 100 * 1024) {
+      toast.error("File is too large. Please upload a valid SSH key file.");
+      event.target.value = ""; // Reset input
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      // Inject the file contents directly into the React Hook Form state
+      setValue("privateKey", text, { shouldValidate: true, shouldDirty: true });
+      toast.success("Key file loaded successfully.");
+    };
+    reader.onerror = () => {
+      toast.error("Failed to read the key file.");
+    };
+    reader.readAsText(file);
+
+    // Reset input so the same file can be uploaded again if needed
+    event.target.value = "";
+  };
+
+  console.log(errors)
 
   return (
     <>
@@ -94,7 +130,11 @@ function ServerFormFields({ form }: { form: UseFormReturn<any> }) {
           control={control}
           name="authMethod"
           render={({ field }) => (
-            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-6">
+            <RadioGroup
+              onValueChange={field.onChange}
+              value={field.value}
+              className="flex gap-6"
+            >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="password" id="password" />
                 <Label htmlFor="password" className="font-normal cursor-pointer">Password</Label>
@@ -116,8 +156,33 @@ function ServerFormFields({ form }: { form: UseFormReturn<any> }) {
         </div>
       ) : (
         <div className="space-y-2">
-          <Label htmlFor="privateKey">Private Key *</Label>
-          <Textarea id="privateKey" className="font-mono h-32" placeholder="-----BEGIN RSA PRIVATE KEY-----" {...register("privateKey")} />
+          <div className="flex justify-between items-center">
+            <Label htmlFor="privateKey">Private Key *</Label>
+            <div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handleFileUpload}
+                accept=".pem,.key,.txt,application/x-pem-file"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-3 h-3 mr-2" /> Upload File
+              </Button>
+            </div>
+          </div>
+          <Textarea
+            id="privateKey"
+            className="font-mono h-32 text-xs"
+            placeholder="-----BEGIN RSA PRIVATE KEY-----"
+            {...register("privateKey")}
+          />
           {errors.privateKey && <p className="text-sm text-destructive">{errors.privateKey.message as string}</p>}
         </div>
       )}
@@ -133,7 +198,19 @@ function ServerFormFields({ form }: { form: UseFormReturn<any> }) {
 
 function ServerCreateDialog({ isOpen, onClose, onSubmit }: { isOpen: boolean; onClose: () => void; onSubmit: (data: CreateServerSchema) => void }) {
   const form = useForm<ServerFormValues>({
-    resolver: zodResolver(createServerSchema),
+    resolver: async (data, context, options) => {
+      const validationPayload = { ...data };
+
+      // Strip out fields that shouldn't be validated based on the auth method
+      if (validationPayload.authMethod === "password") {
+        delete validationPayload.privateKey;
+        delete validationPayload.passphrase;
+      } else if (validationPayload.authMethod === "private_key") {
+        delete validationPayload.password;
+      }
+
+      return zodResolver(createServerSchema)(validationPayload, context, options);
+    },
     defaultValues: { name: "", host: "", port: 22, username: "", authMethod: "password", password: "", privateKey: "", passphrase: "" }
   });
 
@@ -154,13 +231,15 @@ function ServerCreateDialog({ isOpen, onClose, onSubmit }: { isOpen: boolean; on
         <DialogHeader>
           <DialogTitle>Add New Server</DialogTitle>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(submitHandler)} className="space-y-6 py-4">
-          <ServerFormFields form={form} />
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">Add Server</Button>
-          </div>
-        </form>
+        <FormProvider {...form}>
+          <form onSubmit={form.handleSubmit(submitHandler)} className="space-y-6 py-4">
+            <ServerFormFields />
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+              <Button type="submit">Add Server</Button>
+            </div>
+          </form>
+        </FormProvider>
       </DialogContent>
     </Dialog>
   );
@@ -169,10 +248,17 @@ function ServerCreateDialog({ isOpen, onClose, onSubmit }: { isOpen: boolean; on
 function ServerEditDialog({ isOpen, onClose, onSubmit, defaultValues }: { isOpen: boolean; onClose: () => void; onSubmit: (data: UpdateServerSchema) => void; defaultValues: Server }) {
   const form = useForm<ServerFormValues>({
     resolver: async (data, context, options) => {
-      // 1. Frontend Validation Bypass
-      // We must strip empty unchanged credentials here, otherwise your 
-      // Zod .superRefine will block the submission entirely.
       const validationPayload: Partial<ServerFormValues> = { ...data };
+      
+      // 1. Strip irrelevant fields based on the currently selected auth method
+      if (validationPayload.authMethod === "password") {
+        delete validationPayload.privateKey;
+        delete validationPayload.passphrase;
+      } else if (validationPayload.authMethod === "private_key") {
+        delete validationPayload.password;
+      }
+
+      // 2. Frontend Validation Bypass for unchanged credentials
       const authUnchanged = validationPayload.authMethod === defaultValues.authMethod;
       const noCredentialsEntered = !validationPayload.password && !validationPayload.privateKey;
 
@@ -198,21 +284,21 @@ function ServerEditDialog({ isOpen, onClose, onSubmit, defaultValues }: { isOpen
   });
 
   useEffect(() => {
-    form.reset({
-      name: defaultValues.name,
-      host: defaultValues.host,
-      port: defaultValues.port,
-      username: defaultValues.username,
-      authMethod: defaultValues.authMethod,
-      password: "",
-      privateKey: "",
-      passphrase: ""
-    });
-  }, [defaultValues, form]);
+    if (isOpen) {
+      form.reset({
+        name: defaultValues.name,
+        host: defaultValues.host,
+        port: defaultValues.port,
+        username: defaultValues.username,
+        authMethod: defaultValues.authMethod,
+        password: "",
+        privateKey: "",
+        passphrase: ""
+      });
+    }
+  }, [isOpen, defaultValues, form]);
 
   const submitHandler = (data: ServerFormValues) => {
-    // 2. True PATCH payload construction
-    // Diff the current form values against the initial defaultValues
     const patchPayload: Partial<ServerFormValues> = {};
 
     if (data.name !== defaultValues.name) patchPayload.name = data.name;
@@ -230,7 +316,6 @@ function ServerEditDialog({ isOpen, onClose, onSubmit, defaultValues }: { isOpen
       if (data.passphrase) patchPayload.passphrase = data.passphrase;
     }
 
-    // If no fields were actually changed, do not make an API request
     if (Object.keys(patchPayload).length === 0) {
       onClose();
       return;
@@ -245,13 +330,15 @@ function ServerEditDialog({ isOpen, onClose, onSubmit, defaultValues }: { isOpen
         <DialogHeader>
           <DialogTitle>Edit Server</DialogTitle>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(submitHandler)} className="space-y-6 py-4">
-          <ServerFormFields form={form} />
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">Save Changes</Button>
-          </div>
-        </form>
+        <FormProvider {...form}>
+          <form onSubmit={form.handleSubmit(submitHandler)} className="space-y-6 py-4">
+            <ServerFormFields />
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+              <Button type="submit">Save Changes</Button>
+            </div>
+          </form>
+        </FormProvider>
       </DialogContent>
     </Dialog>
   );
@@ -262,15 +349,23 @@ function ServerEditDialog({ isOpen, onClose, onSubmit, defaultValues }: { isOpen
 export default function ServersPage() {
   const [search, setSearch] = useState("");
 
+  const { data: currentUser } = useCurrentUser();
+
+  const canManageServers =
+    currentUser?.role === "owner" ||
+    currentUser?.role === "admin";
+
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedServer, setSelectedServer] = useState<Server | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
 
   const { data: serversData, isLoading } = useServers();
   const addMutation = useAddServer();
   const updateMutation = useUpdateServer();
   const testConnectionMutation = useTestServerConnection();
+  const deleteMutation = useDeleteServer()
 
   const navigate = useNavigate();
 
@@ -284,7 +379,11 @@ export default function ServersPage() {
       <div className="flex justify-between items-start mb-6">
         <div>
           <h1 className="text-2xl font-semibold">Servers</h1>
-          <p className="text-sm text-muted-foreground">Manage your servers and their connections</p>
+          <p className="text-sm text-muted-foreground">
+            {canManageServers
+              ? "Manage your organization's servers and access"
+              : "Servers you have access to"}
+          </p>
         </div>
       </div>
 
@@ -298,9 +397,12 @@ export default function ServersPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button onClick={() => setIsAddOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" /> Add Server
-        </Button>
+        {canManageServers && (
+          <Button onClick={() => setIsAddOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Server
+          </Button>
+        )}
       </div>
 
       <div className="border rounded-lg bg-card overflow-hidden">
@@ -317,8 +419,14 @@ export default function ServersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">Loading...</TableCell></TableRow>
+            {isLoading && filteredServers?.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-10 text-muted-foreground text-sm">
+                  {canManageServers
+                    ? "No servers yet. Add one to get started."
+                    : "You don't have access to any servers yet. Contact an admin if you think this is wrong."}
+                </TableCell>
+              </TableRow>
             ) : filteredServers?.map((server: Server) => (
               <TableRow key={server.id} className="hover:bg-muted/50">
                 <TableCell className="font-medium flex mt-1 items-center justify-start gap-2">
@@ -342,29 +450,66 @@ export default function ServersPage() {
                   {server.lastConnectedAt ? format(new Date(server.lastConnectedAt), "dd MMM yyyy, hh:mm a") : "—"}
                 </TableCell>
                 <TableCell>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => { setSelectedServer(server); setIsDetailsOpen(true); }}>
-                      <Eye className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => { setSelectedServer(server); setIsEditOpen(true); }}>
-                      <Edit2 className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                    </Button>
-                    <Button variant="ghost" onClick={() => navigate(`/servers/${server.id}/terminal`)} size="icon" className="hover:text-destructive">
-                      <SquareTerminal className="w-4 h-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="hover:text-destructive">
-                      <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                    <Button variant="ghost" onClick={() => navigate(`/sessions/${server.id}`)} size="icon" className="hover:text-destructive">
-                      <Timeline className="w-4 h-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                  </div>
+                  <ServerRowActions
+                    server={server}
+                    canManageServers={canManageServers}
+                    onView={() => { setSelectedServer(server); setIsDetailsOpen(true); }}
+                    onEdit={() => { setSelectedServer(server); setIsEditOpen(true); }}
+                    onDelete={() => { setSelectedServer(server); setIsDeleteOpen(true); }}
+                    onOpenTerminal={() => navigate(`/servers/${server.id}/terminal`)}
+                    onViewSessions={() => navigate(`/sessions`)}
+                  />
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+
+      <Dialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Delete {selectedServer?.name}?
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (!selectedServer) return;
+
+                deleteMutation.mutate(selectedServer.id, {
+                  onSuccess: () => {
+                    setIsDeleteOpen(false);
+                    setSelectedServer(null);
+                  },
+                });
+              }}
+            >
+              {deleteMutation.isPending
+                ? "Deleting..."
+                : "Delete Server"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ServerCreateDialog
         isOpen={isAddOpen}
@@ -391,52 +536,73 @@ export default function ServersPage() {
 
       {selectedServer && (
         <Dialog open={isDetailsOpen} onOpenChange={(open) => { if (!open) setIsDetailsOpen(false); }}>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-2xl!">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-xl">
-                {selectedServer.name}
-                {selectedServer.lastConnectedAt && (
-                  <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded border border-green-500/20">Previously Connected</span>
-                )}
-              </DialogTitle>
+              <div className="flex items-center justify-between pr-6">
+                <div>
+                  <DialogTitle className="text-xl">{selectedServer.name}</DialogTitle>
+                  <DialogDescription className="mt-1">
+                    {selectedServer.host}:{selectedServer.port} · connected as {selectedServer.username}
+                  </DialogDescription>
+                </div>
+                <Badge variant={selectedServer.lastConnectedAt ? "default" : "secondary"} className="shrink-0">
+                  {selectedServer.lastConnectedAt ? "Previously Connected" : "Never Connected"}
+                </Badge>
+              </div>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-6 mt-4">
-              <div className="space-y-4 bg-muted/30 p-4 rounded-lg border">
-                <h3 className="font-semibold mb-2">Basic Information</h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <span className="text-muted-foreground">Name</span><span>{selectedServer.name}</span>
-                  <span className="text-muted-foreground">Host</span><span>{selectedServer.host}</span>
-                  <span className="text-muted-foreground">Port</span><span>{selectedServer.port}</span>
-                  <span className="text-muted-foreground">Username</span><span>{selectedServer.username}</span>
-                  <span className="text-muted-foreground">Authentication</span>
-                  <span className="text-primary bg-primary/10 px-2 rounded w-fit capitalize">{selectedServer.authMethod.replace('_', ' ')}</span>
+
+            <div className="space-y-5 mt-2">
+              <section>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Connection</h3>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  <div><span className="text-muted-foreground block text-xs mb-0.5">Host</span>{selectedServer.host}</div>
+                  <div><span className="text-muted-foreground block text-xs mb-0.5">Port</span>{selectedServer.port}</div>
+                  <div><span className="text-muted-foreground block text-xs mb-0.5">Username</span>{selectedServer.username}</div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs mb-0.5">Auth Method</span>
+                    <Badge variant="outline" className="capitalize font-normal">{selectedServer.authMethod.replace("_", " ")}</Badge>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-4 bg-muted/30 p-4 rounded-lg border">
-                <h3 className="font-semibold mb-2">Discovered Information</h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <span className="text-muted-foreground">Hostname</span><span>{selectedServer.hostname || "—"}</span>
-                  <span className="text-muted-foreground">OS</span><span className="flex items-center gap-1"><OSIcon os={selectedServer.operatingSystem} /> {selectedServer.operatingSystem || "—"}</span>
-                  <span className="text-muted-foreground">Architecture</span><span>{selectedServer.architecture || "—"}</span>
-                  <span className="text-muted-foreground">Kernel</span><span>{selectedServer.kernelVersion || "—"}</span>
-                  <span className="text-muted-foreground">CPU Cores</span><span>{selectedServer.cpuCoreCount || "—"}</span>
+              </section>
+
+              <Separator />
+
+              <section>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Discovered</h3>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  <div><span className="text-muted-foreground block text-xs mb-0.5">Hostname</span>{selectedServer.hostname || "—"}</div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs mb-0.5">OS</span>
+                    <span className="flex items-center gap-1.5"><OSIcon os={selectedServer.operatingSystem} />{selectedServer.operatingSystem || "—"}</span>
+                  </div>
+                  <div><span className="text-muted-foreground block text-xs mb-0.5">Architecture</span>{selectedServer.architecture || "—"}</div>
+                  <div><span className="text-muted-foreground block text-xs mb-0.5">Kernel</span>{selectedServer.kernelVersion || "—"}</div>
+                  <div><span className="text-muted-foreground block text-xs mb-0.5">CPU Cores</span>{selectedServer.cpuCoreCount || "—"}</div>
                 </div>
-              </div>
+              </section>
             </div>
-            <div className="flex justify-between mt-6">
+
+            <div className="flex items-center justify-between mt-6 pt-4 border-t">
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => testConnectionMutation.mutate(selectedServer.id)}
                 disabled={testConnectionMutation.isPending}
               >
                 <Activity className="w-4 h-4 mr-2" />
                 {testConnectionMutation.isPending ? "Testing..." : "Test Connection"}
               </Button>
-              <div className="flex gap-2">
-                <Button variant="outline">Rediscover</Button>
-                <Button variant="outline" onClick={() => { setIsDetailsOpen(false); setIsEditOpen(true); }}>Edit</Button>
-                <Button variant="destructive">Delete</Button>
-              </div>
+
+              {canManageServers && (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => { setIsDetailsOpen(false); setIsEditOpen(true); }}>
+                    <Edit2 className="w-4 h-4 mr-2" /> Edit
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => { setIsDetailsOpen(false); setIsDeleteOpen(true); }}>
+                    <Trash2 className="w-4 h-4 mr-2" /> Delete
+                  </Button>
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>

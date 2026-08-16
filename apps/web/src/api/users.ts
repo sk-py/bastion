@@ -1,4 +1,4 @@
-import type { AddUserSchema } from "@bastion/schemas";
+import type { AddUserSchema, UpdateUserSchema } from "@bastion/schemas";
 import { api } from "./axios";
 
 export interface WorkspaceUser {
@@ -29,6 +29,30 @@ export const addUser = async (
   const { data } = await api.post<
     ApiResponse<WorkspaceUser>
   >("/auth/add-user", input);
+
+  return data.data;
+};
+
+export const updateUser = async (
+  userId: string,
+  input: UpdateUserSchema,
+) => {
+  const { data } = await api.patch<ApiResponse<WorkspaceUser>>(
+    `/auth/users/${userId}`,
+    input,
+  );
+
+  return data.data;
+};
+
+export const updateUserStatus = async (
+  userId: string,
+  isActive: boolean,
+) => {
+  const { data } = await api.patch<ApiResponse<WorkspaceUser>>(
+    `/auth/users/${userId}/status`,
+    { isActive },
+  );
 
   return data.data;
 };

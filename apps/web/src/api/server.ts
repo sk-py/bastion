@@ -25,3 +25,9 @@ export const getServerById = async (id: string) => {
   const res = await api.get(`/server/${id}`);
   return res.data.data;
 }
+
+export const deleteServer = async (
+  serverId: string,
+) => {
+  return api.delete(`/server/${serverId}`);
+};
