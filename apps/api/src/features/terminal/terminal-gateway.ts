@@ -4,19 +4,19 @@ import { parseCookie } from "cookie";
 import { authenticateUser } from "../auth/local/auth-service.js";
 import type { Duplex } from "node:stream";
 import type WebSocket from "ws";
-import logger from "src/core/logger.js";
+import logger from "../../core/logger.js";
 import { URL } from "node:url";
 import { createTerminalSession } from "./terminal-service.js";
 import type { TerminalRequest } from "./terminal-types.js";
-import UnAuthenticatedError from "src/core/errors/unauthenticated.js";
+import UnAuthenticatedError from "../../core/errors/unauthenticated.js";
 import type { RawData } from "ws";
 import { recordServerConnection } from "../servers/server-service.js";
 import {
   sshSessionManager,
   type SshSession,
-} from "src/core/ssh/ssh-session-manager.js";
+} from "../../core/ssh/ssh-session-manager.js";
 import { recordingService } from "./recording/recording-service.js";
-import ForbiddenError from "src/core/errors/forbidden.js";
+import ForbiddenError from "../../core/errors/forbidden.js";
 
 export class TerminalGateway {
   private readonly wss: WebSocketServer;

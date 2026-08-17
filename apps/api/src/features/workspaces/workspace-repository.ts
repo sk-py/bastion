@@ -1,4 +1,4 @@
-import pool from "src/db/pool.js";
+import pool from "../../db/pool.js";
 import type { UserRole } from "../auth/local/auth-types.js";
 
 export interface WorkspaceUserGroup {

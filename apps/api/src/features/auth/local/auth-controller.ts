@@ -9,7 +9,7 @@ import {
   updateUser as updateUserService,
   updateUserStatus as updateUserStatusService,
 } from "./auth-service.js";
-import { env } from "src/config.js";
+import { env } from "../../../config.js";
 
 export const addUser = async (req: Request, res: Response) => {
   const { name, email, password, role, mustChangePassword }: AddUserSchema =

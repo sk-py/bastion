@@ -1,6 +1,6 @@
 import argon2 from "argon2";
-import { env } from "src/config.js";
-import pool from "src/db/pool.js";
+import { env } from "../../config.js";
+import pool from "../../db/pool.js";
 
 const BOOTSTRAP_WORKSPACE_NAME = "Workspace 1";
 

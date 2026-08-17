@@ -1,9 +1,9 @@
 import WebSocket from "ws";
 import { fetchServerById } from "../servers/server-repository.js";
 import type { ClientChannel } from "ssh2";
-import NotFoundError from "src/core/errors/not-found.js";
-import { decrypt } from "src/core/utils/encryption.js";
-import { connect } from "src/core/ssh/ssh-service.js";
+import NotFoundError from "../../core/errors/not-found.js";
+import { decrypt } from "../../core/utils/encryption.js";
+import { connect } from "../../core/ssh/ssh-service.js";
 import type { TerminalOptions, TerminalSession } from "./terminal-types.js";
 import { getAccessibleServer } from "../servers/server-service.js";
 

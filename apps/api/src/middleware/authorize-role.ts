@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import ForbiddenError from "src/core/errors/forbidden.js";
-import type { UserRole } from "src/features/auth/local/auth-types.js";
+import ForbiddenError from "../core/errors/forbidden.js";
+import type { UserRole } from "../features/auth/local/auth-types.js";
 
 export const requireRole =
   (...allowedRoles: UserRole[]) =>

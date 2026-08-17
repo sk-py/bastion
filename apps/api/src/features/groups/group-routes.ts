@@ -18,9 +18,9 @@ import {
   removeServer,
   update,
 } from "./group-controller.js";
-import { requireAuth } from "src/middleware/authenticate.js";
-import { validate } from "src/middleware/validator.js";
-import { requireRole } from "src/middleware/authorize-role.js";
+import { requireAuth } from "../../middleware/authenticate.js";
+import { validate } from "../../middleware/validator.js";
+import { requireRole } from "../../middleware/authorize-role.js";
 
 const router: Router = Router();
 

@@ -19,7 +19,7 @@ import {
   type UpdateServerSchema,
 } from "@bastion/schemas";
 import type { Server, UpdateServerData } from "./server-types.js";
-import logger from "src/core/logger.js";
+import logger from "../../core/logger.js";
 import type { UserRole } from "../auth/local/auth-types.js";
 
 export const addServer = async (

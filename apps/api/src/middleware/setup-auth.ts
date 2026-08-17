@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import UnAuthenticatedError from "src/core/errors/unauthenticated.js";
-import { authenticateUser } from "src/features/auth/local/auth-service.js";
+import UnAuthenticatedError from "../core/errors/unauthenticated.js";
+import { authenticateUser } from "../features/auth/local/auth-service.js";
 
 export const requireSetupAuth = async (
   req: Request,

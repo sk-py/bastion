@@ -12,9 +12,9 @@ import {
 import { validate } from "../../../middleware/validator.js";
 import { loginSchema, addUserSchema, updateUserSchema, updateUserStatusSchema } from "@bastion/schemas";
 import { requireAuth } from "../../../middleware/authenticate.js";
-import { requireSetupAuth } from "src/middleware/setup-auth.js";
+import { requireSetupAuth } from "../../../middleware/setup-auth.js";
 import { initialSetupSchema } from "./auth-schema.js";
-import { requireRole } from "src/middleware/authorize-role.js";
+import { requireRole } from "../../../middleware/authorize-role.js";
 
 const router: Router = Router();
 

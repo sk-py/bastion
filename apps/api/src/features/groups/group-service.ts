@@ -14,8 +14,8 @@ import {
   removeGroupServer,
   updateGroup as updateGroupRepository,
 } from "./group-repository.js";
-import BadRequestError from "src/core/errors/bad-request.js";
-import NotFoundError from "src/core/errors/not-found.js";
+import BadRequestError from "../../core/errors/bad-request.js";
+import NotFoundError from "../../core/errors/not-found.js";
 
 export const createGroup = async (
   workspaceId: string,

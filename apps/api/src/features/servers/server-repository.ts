@@ -6,7 +6,7 @@ import type {
   Server,
   UpdateServerData,
 } from "./server-types.js";
-import type { DiscoveredServerMetadata } from "src/core/ssh/ssh-types.js";
+import type { DiscoveredServerMetadata } from "../../core/ssh/ssh-types.js";
 
 const SERVER_SELECT = `
   id,

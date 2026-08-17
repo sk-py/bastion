@@ -72,6 +72,9 @@ const bootstrap = async () => {
   });
 };
 
-bootstrap();
+bootstrap().catch((error) => {
+  console.error("BOOTSTRAP FAILED:", error);
+  process.exit(1);
+});
 
 export default app;

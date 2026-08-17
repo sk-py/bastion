@@ -13,7 +13,7 @@ import {
   serverIdSchema,
   updateServerSchema,
 } from "./server-schema.js";
-import { requireRole } from "src/middleware/authorize-role.js";
+import { requireRole } from "../../middleware/authorize-role.js";
 
 const router: Router = Router();
 

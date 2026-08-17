@@ -16,7 +16,7 @@ import type { LoginUserInput, User, UserRole } from "./auth-types.js";
 import crypto from "crypto";
 import { env } from "../../../config.js";
 import UnAuthenticatedError from "../../../core/errors/unauthenticated.js";
-import { sshSessionManager } from "src/core/ssh/ssh-session-manager.js";
+import { sshSessionManager } from "../../../core/ssh/ssh-session-manager.js";
 interface RegisterUserInput {
   name: string;
   email: string;

@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { requireAuth } from "src/middleware/authenticate.js";
+import { requireAuth } from "../../../middleware/authenticate.js";
 import { getRecordings, streamRecording } from "./recording-controller.js";
-import { validate } from "src/middleware/validator.js";
+import { validate } from "../../../middleware/validator.js";
 
 const router: Router = Router()
 
