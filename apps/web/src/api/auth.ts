@@ -1,5 +1,6 @@
 import type { InitialSetupSchema, LoginSchema } from "@bastion/schemas";
 import { api } from "./axios";
+import axios from "axios";
 
 export const completeInitialSetup = async (input: InitialSetupSchema) => {
   const { data } = await api.patch<MeResponse>("/auth/setup", input);
@@ -9,6 +10,7 @@ export const completeInitialSetup = async (input: InitialSetupSchema) => {
 export interface CurrentUser {
   id: string;
   workspaceId: string;
+  workspaceName: string;
   name: string;
   email: string;
   role: "owner" | "admin" | "member";
@@ -28,10 +30,18 @@ export interface LogoutResponse {
   message: string;
 }
 
-export const getCurrentUser = async () => {
-  const { data } = await api.get<MeResponse>("/auth/me");
+export const getCurrentUser = async (): Promise<CurrentUser | null> => {
+  try {
+    const { data } = await api.get<MeResponse>("/auth/me");
 
-  return data.data;
+    return data.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      return null;
+    }
+
+    throw error;
+  }
 };
 
 export const login = async (input: LoginSchema) => {

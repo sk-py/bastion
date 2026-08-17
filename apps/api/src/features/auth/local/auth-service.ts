@@ -16,6 +16,7 @@ import type { LoginUserInput, User, UserRole } from "./auth-types.js";
 import crypto from "crypto";
 import { env } from "../../../config.js";
 import UnAuthenticatedError from "../../../core/errors/unauthenticated.js";
+import { sshSessionManager } from "src/core/ssh/ssh-session-manager.js";
 interface RegisterUserInput {
   name: string;
   email: string;
@@ -28,6 +29,7 @@ interface RegisterUserInput {
 export const toPublicUser = (user: User) => ({
   id: user.id,
   workspaceId: user.workspaceId,
+  workspaceName: user.workspaceName,
   name: user.name,
   email: user.email,
   role: user.role,
@@ -77,6 +79,10 @@ export const loginUser = async ({
 
   if (!user) {
     throw new UnAuthenticatedError("Invalid credentials");
+  }
+
+  if (!user.isActive) {
+    throw new UnAuthenticatedError("Account is disabled");
   }
 
   const valid = await argon2.verify(user.passwordHash, password);
@@ -212,6 +218,7 @@ export const updateUserStatus = async (
 
   if (!isActive) {
     await deleteSessionsByUserId(userId);
+    sshSessionManager.terminateByUser(userId);
   }
 
   return toPublicUser(user);

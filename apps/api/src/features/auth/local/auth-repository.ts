@@ -6,32 +6,40 @@ import type {
   Session,
 } from "./auth-types.js";
 
-const SELECT_USER = `SELECT id,
-        workspace_id AS "workspaceId",
-        name,
-        email,
-        password_hash AS "passwordHash",
-        role,
-        must_change_password AS "mustChangePassword",
-        is_active AS "isActive",
-        created_at AS "createdAt",
-        updated_at AS "updatedAt"
-        `;
+const SELECT_USER = `
+  SELECT
+    u.id,
+    u.workspace_id AS "workspaceId",
+    w.name AS "workspaceName",
+    u.name,
+    u.email,
+    u.password_hash AS "passwordHash",
+    u.role,
+    u.must_change_password AS "mustChangePassword",
+    u.is_active AS "isActive",
+    u.created_at AS "createdAt",
+    u.updated_at AS "updatedAt"
+  FROM users u
+  JOIN workspaces w
+    ON w.id = u.workspace_id
+`;
 
 export const findUserByEmail = async (email: string): Promise<User | null> => {
   const { rows } = await pool.query<User>(
-    `${SELECT_USER} FROM users WHERE email = $1 LIMIT 1`,
+    `${SELECT_USER}
+     WHERE u.email = $1
+     LIMIT 1`,
     [email],
   );
+
   return rows[0] ?? null;
 };
 
 export const findUserById = async (id: string): Promise<User | null> => {
   const { rows } = await pool.query<User>(
-    `${SELECT_USER} FROM users
-      WHERE id = $1
-      LIMIT 1
-    `,
+    `${SELECT_USER}
+     WHERE u.id = $1
+     LIMIT 1`,
     [id],
   );
 
@@ -169,7 +177,14 @@ export const updateUser = async (
         created_at AS "createdAt",
         updated_at AS "updatedAt"
     `,
-    [data.name, data.role, data.email, data.mustChangePassword, userId, workspaceId],
+    [
+      data.name,
+      data.role,
+      data.email,
+      data.mustChangePassword,
+      userId,
+      workspaceId,
+    ],
   );
 
   return rows[0] ?? null;

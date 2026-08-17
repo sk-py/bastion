@@ -19,6 +19,7 @@ import { FooterMenu } from './footer-menu';
 import DashboardNavigation from './sidebar-menu';
 import { Button } from '../ui/button';
 import { useTheme } from 'next-themes';
+import { useCurrentUser } from '@/features/auth/hooks/use-current-user';
 
 
 const teams = [
@@ -29,10 +30,20 @@ const teams = [
 
 export function AppSidebar() {
   const { state, setOpen, open } = useSidebar();
+  const { data: user } = useCurrentUser();
   const isCollapsed = state === 'collapsed';
   const { theme, setTheme } = useTheme();
 
 
+  const visibleRoutes = appRoutes
+    .filter((route) => user && route.roles.includes(user.role))
+    .map((route) => ({
+      ...route,
+      subs: route.subs?.filter((sub) =>
+        user && sub.roles.includes(user.role)
+      ),
+    }))
+    .filter((route) => !route.subs || route.subs.length > 0);
 
 
   return (
@@ -81,10 +92,10 @@ export function AppSidebar() {
           </motion.div>
         </SidebarHeader>
         <SidebarContent className="gap-4 px-2 py-4">
-          <DashboardNavigation routes={appRoutes} />
+          <DashboardNavigation routes={visibleRoutes} />
         </SidebarContent>
         <SidebarFooter className="px-2">
-          <FooterMenu teams={teams} />
+          <FooterMenu user={user!} />
         </SidebarFooter>
       </div>
     </Sidebar>

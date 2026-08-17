@@ -279,7 +279,7 @@ export default function TerminalPage() {
             // the component re-render/reconnect on its own, not boot the user out.
             if (isFinalClose) {
                 redirectTimeoutRef.current = window.setTimeout(() => {
-                    navigate("/");
+                    navigate("/servers");
                 }, 3000);
             }
         };

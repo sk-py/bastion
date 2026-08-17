@@ -3,6 +3,7 @@ export type UserRole = "owner" | "admin" | "member";
 export interface User {
   id: string;
   workspaceId: string;
+  workspaceName: string;
   name: string;
   email: string;
   passwordHash: string;

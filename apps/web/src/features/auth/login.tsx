@@ -109,6 +109,14 @@ export default function LoginPage() {
 
           {/* Card */}
           <div className="rounded-3xl p-8 backdrop-blur-xs sm:p-10">
+
+            {/* Server error */}
+            {serverError && (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-3 mb-2 text-sm text-destructive">
+                {serverError}
+              </div>
+            )}
+
             <form
               onSubmit={handleSubmit(onSubmit)}
               noValidate
@@ -187,13 +195,6 @@ export default function LoginPage() {
                   </p>
                 )}
               </div>
-
-              {/* Server error */}
-              {serverError && (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-3 text-sm text-destructive">
-                  {serverError}
-                </div>
-              )}
 
               {/* Submit */}
               <Button
