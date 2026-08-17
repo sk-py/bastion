@@ -15,7 +15,7 @@ export const requireAuth = async (
 
     const { user } = await authenticateUser(sessionToken);
 
-    if (user.must_change_password) {
+    if (user.mustChangePassword) {
       return next(new ForbiddenError("Initial account setup is required."));
     }
 
