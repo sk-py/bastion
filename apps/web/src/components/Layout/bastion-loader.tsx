@@ -1,3 +1,4 @@
+import { useTheme } from 'next-themes';
 import { useEffect, useState, type JSX } from 'react';
 
 const DEFAULT_PHRASES = [
@@ -21,6 +22,7 @@ export default function BastionLoader({
     size = 128,
 }: BastionLoaderProps): JSX.Element {
     const [index, setIndex] = useState(0);
+    const { resolvedTheme } = useTheme()
 
     useEffect(() => {
         if (label) return;
@@ -34,12 +36,11 @@ export default function BastionLoader({
 
     return (
         <div
-            className={`min-h-[160px] flex flex-col items-center justify-center font-mono ${
-                fullScreen ? 'fixed inset-0 bg-[#0A0B14] z-[999]' : ''
-            }`}
+            className={`min-h-[160px] flex flex-col items-center justify-center font-mono ${fullScreen ? 'fixed inset-0 bg-background z-[999]' : ''
+                }`}
             style={{
                 backgroundImage: fullScreen
-                    ? 'radial-gradient(circle at 50% 30%, rgba(110, 120, 234, 0.08) 0%, transparent 70%)'
+                    ? ` ${resolvedTheme === "dark" ? 'radial-gradient(circle at 50% 50%, #7D82FB -200%, transparent 70%)' : 'radial-gradient(circle at 50% 50%, #7D82FB -50%, transparent 70%)'}`
                     : undefined,
             }}
             role="status"
@@ -114,11 +115,11 @@ export default function BastionLoader({
                 </svg>
             </div>
 
-            <div className="flex items-baseline gap-0.5 text-[#8993C9] text-[13px] tracking-[0.02em] min-h-[18px]">
+            <div className="flex items-baseline gap-0.5 text-secondary-foreground text-[13px] tracking-[0.02em] min-h-[18px]">
                 <span key={currentText} className="animate-[bl-fade-in_300ms_ease-out]">
                     {currentText}
                 </span>
-                <span className="w-1.5 h-[13px] ml-0.5 bg-[#6E78EA] inline-block animate-[bl-blink_1s_steps(1)_infinite]" aria-hidden="true" />
+                <span className="w-1.5 h-[13px] ml-0.5 bg-primary inline-block animate-[bl-blink_1s_steps(1)_infinite]" aria-hidden="true" />
             </div>
 
             <style>{`

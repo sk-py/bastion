@@ -58,11 +58,11 @@ export function FooterMenu({ user }: { user: CurrentUser }) {
 
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-semibold">
-                {user.name}
+                {user?.name}
               </span>
 
               <span className="truncate text-xs">
-                {user.email}
+                {user?.email}
               </span>
             </div>
 
@@ -87,11 +87,11 @@ export function FooterMenu({ user }: { user: CurrentUser }) {
 
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-medium">
-                    {user.workspaceName}
+                    {user?.workspaceName}
                   </span>
 
                   <span className="truncate capitalize text-xs text-muted-foreground">
-                    {user.role}
+                    {user?.role}
                   </span>
                 </div>
               </DropdownMenuItem>
