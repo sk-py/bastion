@@ -1,7 +1,7 @@
 export default {
   databaseUrl: process.env.DATABASE_URL,
   migrationsTable: "migrations",
-  dir: "src/db/migrations",
+  dir: "/migrations",
   direction: "up",
   count: Infinity,
 };

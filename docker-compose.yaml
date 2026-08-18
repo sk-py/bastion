@@ -1,0 +1,43 @@
+services:
+  web:
+    image: bastion-web:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+  
+  api:
+    image: bastion-api:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - recordings_data:/app/recordings
+    networks:
+      default:
+        aliases:
+          - api
+
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    profiles:
+      - postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}    
+      POSTGRES_USER: ${POSTGRES_USER}    
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+  recordings_data:

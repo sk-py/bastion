@@ -59,6 +59,9 @@ importers:
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
+      node-pg-migrate:
+        specifier: ^9.0.0
+        version: 9.0.0(@types/pg@8.20.0)(pg@8.22.0)
       pg:
         specifier: ^8.22.0
         version: 8.22.0
@@ -108,9 +111,6 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
-      node-pg-migrate:
-        specifier: ^9.0.0
-        version: 9.0.0(@types/pg@8.20.0)(pg@8.22.0)
       nodemon:
         specifier: ^3.1.14
         version: 3.1.14
