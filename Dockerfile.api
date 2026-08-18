@@ -33,7 +33,7 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/schemas/package.json packages/schemas/package.json
 
-RUN pnpm install --frozen-lockfile --prod --filter api...
+RUN pnpm install --frozen-lockfile --prod --filter api
 
 COPY --from=build /app/packages/schemas/dist packages/schemas/dist
 COPY --from=build /app/apps/api/dist apps/api/dist
