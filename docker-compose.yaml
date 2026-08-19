@@ -1,6 +1,6 @@
 services:
   web:
-    image: bastion-web:latest
+    image: ghcr.io/sk-py/bastion-web:latest
     restart: unless-stopped
     depends_on:
       - api
@@ -8,7 +8,7 @@ services:
       - "80:80"
   
   api:
-    image: bastion-api:latest
+    image: ghcr.io/sk-py/bastion-api:latest
     restart: unless-stopped
     env_file:
       - .env
