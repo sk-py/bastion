@@ -195,7 +195,9 @@ export default function TerminalPage() {
         const savedSessionId = sessionStorage.getItem(`bastion_term_${server.id}`);
 
         // Append it to the query string if it exists
-        const wsUrl = new URL(`ws://${hostIp}:18400/ws/terminal`);
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = new URL(`${protocol}//${window.location.host}/ws/terminal`);
+        
         wsUrl.searchParams.set("serverId", server.id);
         wsUrl.searchParams.set("cols", term.cols.toString());
         wsUrl.searchParams.set("rows", term.rows.toString());

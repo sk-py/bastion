@@ -5,7 +5,7 @@ services:
     depends_on:
       - api
     ports:
-      - "80:80"
+      - "${WEB_PORT:-18401}:80"
   
   api:
     image: ghcr.io/sk-py/bastion-api:latest
