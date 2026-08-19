@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
-    "start": "node dist/wait-for-db.js && pnpm migration:up && node dist/app.js",
+    "start": "node dist/wait-for-db.js && ./node_modules/.bin/node-pg-migrate up -m migrations && node dist/app.js",
     "migration:create": "node-pg-migrate -j ts create",
     "migration:up": "node-pg-migrate up -m migrations",
     "migration:down": "node-pg-migrate down -m migrations"
@@ -29,13 +29,14 @@
     "express-rate-limit": "^8.6.0",
     "http-status-codes": "^2.3.0",
     "jsonwebtoken": "^9.0.3",
+    "node-pg-migrate": "^9.0.0",
     "pg": "^8.22.0",
     "ssh2": "^1.17.0",
+    "tsx": "^4.23.12",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
     "ws": "^8.21.2",
-    "zod": "^4.4.3",
-    "node-pg-migrate": "^9.0.0"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -50,7 +51,6 @@
     "@types/ws": "^8.18.1",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
-    "tsx": "^4.22.4",
     "typescript": "^5.9.2"
   }
 }
