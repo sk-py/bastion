@@ -11,7 +11,7 @@ Self-hosted, browser-based SSH access, file transfer, and full session recording
 [Website](https://bastion.skpy.in) · [Quick Install](#quick-install) · [Build from Source](#build-from-source) · [Environment Variables](#environment-variables) · [Roadmap](#roadmap)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-7D82FB.svg)](./LICENSE)
-[![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fsk--py%2Fbastion-7D82FB)](https://github.com/sk-py/bastion/pkgs/container/bastion-web)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fsk--py%2Fbastion-7D82FB)](https://github.com/users/sk-py/packages/container/package/bastion-web)
 
 </div>
 
@@ -84,7 +84,7 @@ docker compose up -d
 
 That's it. Bastion connects to its database, brings the schema up to date, creates the owner account, and starts serving. Open `http://127.0.0.1:${WEB_PORT:-18401}`, log in with the bootstrap credentials, set a real password, and start managing servers.
 
-> Prefer to inspect the installer before piping it into a shell? Read [`install.sh`](./install.sh) or [`install.ps1`](./install.ps1) first — that's exactly what they run, nothing more.
+> Prefer to inspect the installer before piping it into a shell? Read [`install.sh`](http://bastion.skpy.in/install.sh) or [`install.ps1`](http://bastion.skpy.in/install.ps1) first — that's exactly what they run, nothing more.
 
 ## Build from source
 
@@ -203,7 +203,7 @@ The shipped Docker Compose configuration isn't a minimal example — it's the sa
 
 **Security** — Argon2id password hashing, SHA-256 session token tracking, parameterized SQL throughout.
 
-**Deployment** — Docker Compose, with a hardened, non-root, read-only container configuration. Published images: [`ghcr.io/sk-py/bastion-web`](https://github.com/sk-py/bastion/pkgs/container/bastion-web) and [`ghcr.io/sk-py/bastion-api`](https://github.com/sk-py/bastion/pkgs/container/bastion-api).
+**Deployment** — Docker Compose, with a hardened, non-root, read-only container configuration. Published images: [`ghcr.io/sk-py/bastion-web`](https://github.com/users/sk-py/packages/container/package/bastion-web) and [`ghcr.io/sk-py/bastion-api`](https://github.com/users/sk-py/packages/container/package/bastion-api).
 
 Built as a modular monorepo (Turborepo + pnpm workspaces).
 
