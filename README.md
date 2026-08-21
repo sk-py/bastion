@@ -1,159 +1,239 @@
-# Turborepo starter
+<div align="center">
 
-This Turborepo starter is maintained by the Turborepo core team.
+<img src="./apps/web/public/android-chrome-512x512.png" alt="Bastion" width="88" />
 
-## Using this example
+# Bastion
 
-Run the following command:
+**Your entire server fleet, behind one browser tab.**
 
-```sh
-npx create-turbo@latest
+Self-hosted, browser-based SSH access, file transfer, and full session recording — no private key or password ever touches a laptop.
+
+[Website](https://bastion.skpy.in) · [Quick Install](#quick-install) · [Build from Source](#build-from-source) · [Environment Variables](#environment-variables) · [Roadmap](#roadmap)
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-7D82FB.svg)](./LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fsk--py%2Fbastion-7D82FB)](https://github.com/users/sk-py/packages/container/package/bastion-web)
+
+</div>
+
+---
+
+## Table of contents
+
+- [The problem](#the-problem)
+- [Features](#features)
+- [Quick install](#quick-install)
+- [Build from source](#build-from-source)
+- [Environment variables](#environment-variables)
+- [Deployment & network access](#deployment--network-access)
+- [Container hardening](#container-hardening)
+- [Tech stack](#tech-stack)
+- [Local development](#local-development)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## The problem
+
+Server access today is a mess of half-measures. `.pem` files get emailed, Slacked, and copied into a dozen `~/.ssh` folders, and nobody can say for certain who still has access to what. Desktop SFTP clients and one-off `scp` commands scatter file transfers across tools with no record of what moved where. And when something goes wrong at 2 AM, there's no replay — just guesswork about what someone actually typed.
+
+Bastion replaces all of it with one governed entry point. Every connection, every keystroke, every file — routed through a system that knows exactly who did what, and can show you.
+
+## Features
+
+- **A real terminal, in the browser, that doesn't lose its place.** Full-featured, responsive SSH terminal access from any device, phone included, with a purpose-built mobile input layer. Close the tab, lock the phone, drop the WiFi for a second — reopen it and the session is exactly where it was left, still connected to the same shell.
+- **Nobody ever sees a credential.** Server passwords and private keys are stored encrypted and never exposed to the people using them. Users get access to servers, not to secrets. Revoke someone's access and it's immediate — any terminal session they had open is severed on the spot, not "eventually," not "next time they reconnect."
+- **Every session, recorded and replayable.** Every terminal session is captured automatically in the open [asciicast v2](https://docs.asciinema.org/manual/asciicast/v2/) format and can be replayed later exactly as it happened — file transfers marked directly on the timeline so an audit never has a blind spot. No setup, no opt-in.
+- **File transfer without leaving the terminal.** Drag a file onto the terminal and it streams straight through to the remote server — no buffering to disk along the way, no separate FTP client, no context switch. It shows up in the session's audit trail like everything else.
+- **Workspaces and roles that actually mean something.** One workspace per deployment, three roles — owners and admins manage servers and users and can review anyone's session history for security review; everyone else sees only what they've been given access to, including their own recordings, not the whole team's.
+- **Locked down by default, not by configuration.** Bastion doesn't rely on anyone remembering to add a firewall rule. Out of the box, it's reachable only from the machine it runs on — nothing is exposed to the network until something is deliberately put in front of it. The application itself runs as an unprivileged, capability-stripped process with a read-only filesystem, so even a worst-case compromise has almost nothing to work with.
+- **Set up once, force good hygiene from day one.** On first launch, Bastion creates a single owner account automatically. Logging in with it requires setting a real name, email, and password before anything else is possible — no shared default credentials lingering in production.
+
+## Quick install
+
+If you want to run Bastion as-is, using the published images, this is the fastest path — no source code, no build step.
+
+**macOS / Linux:**
+
+```bash
+curl -fsSL https://bastion.skpy.in/install.sh | sh
 ```
 
-## What's inside?
+**Windows (PowerShell):**
 
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```powershell
+irm https://bastion.skpy.in/install.ps1 | iex
 ```
 
-Without global `turbo`, use your package manager:
+Both scripts do the same thing, and are safe to re-run:
 
-```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+- Check that Docker, the Docker Compose v2 plugin, and `curl` (or `Invoke-WebRequest` on Windows) are available, failing early with a clear message if something's missing.
+- Pull down `docker-compose.yaml` and `.env.example` — nothing else.
+- Create `./bastion` if it doesn't already exist, or update the deployment files in place if it does.
+- Copy `.env.example` to `.env` **only if `.env` doesn't already exist** — an existing configuration is never overwritten.
+- On a fresh `.env`, generate a random `ENCRYPTION_KEY` (32 bytes, hex-encoded) and replace the example database password everywhere it appears, so a real deployment never runs on the documented example credentials.
+
+Either script leaves you with:
+
+```bash
+cd bastion
+# review .env and fill in anything still blank
+docker compose up -d
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+That's it. Bastion connects to its database, brings the schema up to date, creates the owner account, and starts serving. Open `http://127.0.0.1:${WEB_PORT:-18401}`, log in with the bootstrap credentials, set a real password, and start managing servers.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+> Prefer to inspect the installer before piping it into a shell? Read [`install.sh`](http://bastion.skpy.in/install.sh) or [`install.ps1`](http://bastion.skpy.in/install.ps1) first — that's exactly what they run, nothing more.
 
-```sh
-turbo build --filter=docs
+## Build from source
+
+If you want to change anything about the application itself — swap the logo, adjust the theme, modify or extend functionality — clone the full repository instead:
+
+```bash
+git clone https://github.com/sk-py/bastion.git
+cd bastion
 ```
 
-Without global `turbo`:
+From here, run Bastion locally with hot-reloading for active development (see [Local development](#local-development) below), or build your own container images from the included Dockerfiles to deploy your customized version instead of the published ones. The published `docker-compose.yaml` pulls prebuilt images by reference — to run your own build, point it at the images you build yourself rather than the published tags:
 
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+```yaml
+services:
+  web:
+    image: ghcr.io/sk-py/bastion-web:latest # replace with your own build
+  api:
+    image: ghcr.io/sk-py/bastion-api:latest # replace with your own build
 ```
 
-### Develop
+## Environment variables
 
-To develop all apps and packages, run the following command:
+```bash
+# ============================================================
+# Database
+# ============================================================
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+# Set to "postgres" to run PostgreSQL via the bundled container.
+# Leave empty to point at an external PostgreSQL instance instead.
+COMPOSE_PROFILES=postgres
 
-```sh
-cd my-turborepo
-turbo dev
+DATABASE_URL=postgresql://bastion:bastion_password@postgres:5432/bastion
+
+# Only used when COMPOSE_PROFILES=postgres
+POSTGRES_DB=bastion
+POSTGRES_USER=bastion
+POSTGRES_PASSWORD=bastion_password
+
+# ============================================================
+# Application
+# ============================================================
+
+NODE_ENV=production
+WEB_PORT=18401                            # Host port the web UI is exposed on (loopback only by default)
+
+AUTH_SESSION_TTL_MS=21600000              # Login session lifetime in ms (6 hours by default)
+ENCRYPTION_KEY=                           # 32 raw bytes, hex-encoded (64 hex characters). Encrypts stored server credentials at rest.
+TRUST_PROXY=loopback                      # Express "trust proxy" setting — adjust if fronted by more than one proxy hop
+
+# Email for the automatically created initial owner account.
+BASTION_BOOTSTRAP_EMAIL=
 ```
 
-Without global `turbo`, use your package manager:
+| Variable | Required | Notes |
+|---|---|---|
+| `COMPOSE_PROFILES` | No | Set to `postgres` to run the bundled database container; leave empty to bring your own. |
+| `DATABASE_URL` | Yes | Standard `postgresql://` connection string. |
+| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Only with the bundled profile | Ignored when pointing at an external Postgres instance. |
+| `NODE_ENV` | Yes | `production` for the published images. |
+| `WEB_PORT` | No | Defaults to `18401`. Host-side port only — see [Deployment & network access](#deployment--network-access). |
+| `AUTH_SESSION_TTL_MS` | No | Login session lifetime in milliseconds. Defaults to 6 hours. |
+| `ENCRYPTION_KEY` | Yes | **Must be exactly 64 hex characters** (32 raw bytes). The quick installer generates this for you with `openssl rand -hex 32`; building from source or bringing your own `.env`, generate it the same way. |
+| `TRUST_PROXY` | No | Express `trust proxy` setting. Adjust if Bastion sits behind more than one proxy hop. |
+| `BASTION_BOOTSTRAP_EMAIL` | No | Email used for the automatically created initial owner account. |
 
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
+> **Never hand-edit the internal API port.** It's baked into the bundled web image's proxy configuration at build time, not read from `.env` at runtime — changing it without rebuilding that image will break routing between the `web` and `api` containers.
+
+## Deployment & network access
+
+By default, Bastion's web interface is bound to `127.0.0.1` on the host — it is **not** reachable from your network or the internet out of the box. This is deliberate. To reach it from anywhere other than the machine it's running on, put something in front of it that terminates access to people you trust.
+
+The recommended approach is a private overlay network (a personal VPN mesh works well) combined with a reverse proxy that only listens on that private network's address. A minimal example, proxying from a private-network address to Bastion's loopback-bound port with TLS termination:
+
+```nginx
+server {
+    listen <your-private-network-ip>:443 ssl;
+    server_name bastion.internal;
+
+    location / {
+        proxy_pass http://127.0.0.1:18401;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        client_max_body_size 1000M;
+    }
+
+    ssl_certificate     /path/to/fullchain.pem;
+    ssl_certificate_key /path/to/privkey.pem;
+}
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+If you'd rather expose Bastion directly on a local network or the public internet instead, any reverse proxy works — just make sure it forwards `Upgrade` and `Connection` headers (required for the terminal and live session playback, both WebSocket-based) and doesn't buffer request bodies on the upload path.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## Container hardening
 
-```sh
-turbo dev --filter=web
+The shipped Docker Compose configuration isn't a minimal example — it's the same hardening profile used in production:
+
+- Runs as an unprivileged, non-root user
+- Read-only root filesystem — the application cannot modify its own code or install anything at runtime
+- All Linux kernel capabilities dropped, privilege escalation explicitly blocked
+- Only two writable paths exist at all: session recordings and application logs, each on its own dedicated, isolated volume
+
+## Tech stack
+
+**Frontend** — React, Vite, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query, React Router.
+
+**Backend** — Node.js (v22+), Express, TypeScript, [`ssh2`](https://github.com/mscdex/ssh2) for the underlying SSH2 protocol client, native WebSockets for the live terminal and session streaming, [`busboy`](https://github.com/mscdex/busboy) for streaming multipart file transfers straight through to the remote host without buffering to disk, [`winston`](https://github.com/winstonjs/winston) for structured application logging, and Zod for I/O validation.
+
+**Database** — PostgreSQL 16+, raw `pg` queries and `node-pg-migrate` — no ORM.
+
+**Terminal & recording** — [xterm.js](https://xtermjs.org/) for the in-browser terminal, sessions recorded in the open [asciicast](https://docs.asciinema.org/manual/asciicast/v2/) format and replayed with the [asciinema player](https://github.com/asciinema/asciinema-player).
+
+**Security** — Argon2id password hashing, SHA-256 session token tracking, parameterized SQL throughout.
+
+**Deployment** — Docker Compose, with a hardened, non-root, read-only container configuration. Published images: [`ghcr.io/sk-py/bastion-web`](https://github.com/users/sk-py/packages/container/package/bastion-web) and [`ghcr.io/sk-py/bastion-api`](https://github.com/users/sk-py/packages/container/package/bastion-api).
+
+Built as a modular monorepo (Turborepo + pnpm workspaces).
+
+## Local development
+
+```bash
+pnpm install
+docker compose up postgres -d
+pnpm dev
 ```
 
-Without global `turbo`:
+Requires Node.js 22+ and pnpm.
 
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
+## Roadmap
 
-### Remote Caching
+These are ideas for where Bastion goes next — **not yet built**, and open contributions toward any of them are welcome.
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+- **Session sharing** — share a recorded session via a unique link for debugging, onboarding, or post-mortems.
+- **Live session shadowing** — let an admin silently observe an active session in real time.
+- **Zero-downtime key rotation** — rotate the encryption key across every stored credential atomically, with automatic rollback if anything fails partway.
+- **SSO / OAuth** — Google and GitHub login for faster team onboarding.
+- **SSH host fingerprint verification** — cryptographic host verification to guard against man-in-the-middle attacks on first connection.
+- **Cloud storage offload** — move session recordings to S3 or Azure Blob Storage instead of local disk.
+- **Command snippet library** — store and inject frequently-used scripts directly into the terminal.
+- **Zmodem support** — legacy in-terminal file transfer protocol support.
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+## Contributing
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+Issues and pull requests are welcome. If you're picking up something from the [roadmap](#roadmap) above, opening an issue first to align on approach is appreciated before sinking real time into it.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## License
 
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+MIT — see [`LICENSE`](./LICENSE) for details.
