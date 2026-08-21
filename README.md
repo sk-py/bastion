@@ -28,6 +28,7 @@ Self-hosted, browser-based SSH access, file transfer, and full session recording
 - [Container hardening](#container-hardening)
 - [Tech stack](#tech-stack)
 - [Local development](#local-development)
+- [How Bastion compares](#how-bastion-compares)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
@@ -180,6 +181,8 @@ server {
 }
 ```
 
+> **Recommended: [Tailscale](https://tailscale.com/).** It's the easiest way to get the private-network address this example proxies from — install the client, log in, and your machine has a private, WireGuard-encrypted address on your own mesh network, with no port forwarding and no manual key exchange to manage. The Personal plan is free indefinitely for up to 6 users with unlimited devices, which comfortably covers a homelab or a small team.
+
 If you'd rather expose Bastion directly on a local network or the public internet instead, any reverse proxy works — just make sure it forwards `Upgrade` and `Connection` headers (required for the terminal and live session playback, both WebSocket-based) and doesn't buffer request bodies on the upload path.
 
 ## Container hardening
@@ -216,6 +219,17 @@ pnpm dev
 ```
 
 Requires Node.js 22+ and pnpm.
+
+## How Bastion compares
+
+Bastion isn't the only self-hosted gateway solving this problem, but it's built on a fundamentally lighter stack than most of the alternatives — and a couple of these are close calls, not a clean sweep.
+
+| | Bastion | [Bastillion](https://github.com/bastillion-io/Bastillion) | [Apache Guacamole](https://guacamole.apache.org/) | [Warpgate](https://github.com/warp-tech/warpgate) |
+|---|---|---|---|---|
+| **License** | MIT — free and unrestricted, forever | [Prosperity Public License](https://prosperitylicense.com/) — free for noncommercial use; commercial use gets a 30-day trial, then requires a paid license | Apache 2.0 | Apache 2.0 |
+| **Runtime** | Node.js — the whole stack (API, web server, database) idles at ~85 MB combined, measured on a live deployment | JVM on embedded Jetty — a fixed heap-allocation and garbage-collection cost paid before it's done any real work, by design | Split across three separate runtimes: a C proxy (`guacd`), a Java servlet container (Tomcat), and a database | Single compiled Rust binary — typically very memory-lean; we haven't measured it directly, so no head-to-head number here |
+| **Setup** | `docker compose up -d`, or a one-line installer script | Requires a matching JDK version and Maven installed locally, with `JAVA_HOME` and `M2_HOME` exported by hand before it will even build | Session recording alone requires manually creating and `chown`-ing a directory shared between the `guacd` and servlet-container users | Ships as a single binary with no external dependencies — genuinely comparable in simplicity to Bastion's own setup |
+| **Session audit format** | Open [asciicast v2](https://docs.asciinema.org/manual/asciicast/v2/) — replayable in any compatible player | Recorded within the app; not documented anywhere as an open, portable format | Own protocol-dump format, played back natively in Guacamole's own web UI — no forced video re-encoding | Recorded and replayable through its own admin UI |
 
 ## Roadmap
 
