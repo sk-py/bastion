@@ -1,4 +1,4 @@
-import pool from "src/db/pool.js";
+import pool from "../../db/pool.js";
 
 export const dashboardRepository = {
   async getAdminMetrics(workspaceId: string) {

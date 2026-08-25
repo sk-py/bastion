@@ -1,4 +1,4 @@
-import { sshSessionManager } from "src/core/ssh/ssh-session-manager.js";
+import { sshSessionManager } from "../../core/ssh/ssh-session-manager.js";
 import { dashboardRepository } from "./dashboard-repository.js";
 
 

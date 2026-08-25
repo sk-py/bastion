@@ -17,7 +17,7 @@
     // "types": ["node"],
     // and npm install -D @types/node
     // "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
+    // "baseUrl": ".",
 
     // Other Outputs
     "sourceMap": true,
