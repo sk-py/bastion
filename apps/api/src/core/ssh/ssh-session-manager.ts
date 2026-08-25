@@ -181,6 +181,10 @@ export class SshSessionManager extends EventEmitter {
     }
   }
 
+  public getActiveSessions() {
+    return Array.from(this.sessions.values());
+  }
+
   /**
    * Idempotent by construction: the map delete below means a second call for the
    * same sessionId hits `if (!session) return` and no-ops. That guarantees the

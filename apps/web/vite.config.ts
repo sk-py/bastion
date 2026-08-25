@@ -19,8 +19,12 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:18400",
+        target: "http://127.0.0.1:18400",
         changeOrigin: true,
+      },
+      "/ws": {
+        target: "ws://localhost:18400",
+        ws: true,
       },
     },
   },
